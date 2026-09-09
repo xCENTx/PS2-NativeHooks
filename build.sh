@@ -15,6 +15,11 @@ PNACH=bin/SOCOM.pnach
 HOOK_ADDR=0x001EBF20
 CODE_CAVE=0x00097000
 
+if [ -z "$PS2SDK" ]; then
+    echo "Error: PS2SDK is not set. Run the PS2 toolchain environment script first."
+    exit 1
+fi
+
 echo "[1/4] Compiling..."
 $CC -O2 -c "$SOURCE" -o "$OBJECT"
 
@@ -35,12 +40,10 @@ $OBJCOPY \
     "$BINARY"
 
 echo "[4/4] Generating PNACH..."
-python3 ELFPatch.py \
+python3 GENPNach.py \
     "$HOOK_ADDR" \
     "$CODE_CAVE" \
     "$BINARY" \
     "$PNACH"
 
 echo
-# echo "Done!"
-# echo "Generated: $PNACH"

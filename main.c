@@ -1,5 +1,5 @@
-#include "include/structs.h"
-#include "include/game.h"
+#include "game/structs.h"
+#include "game/game.h"
 
 // ------------------------------------------------------------
 // statics
