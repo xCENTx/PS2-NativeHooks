@@ -660,7 +660,6 @@ static_assert(sizeof(CZWeapon) == 0xAC, "Size of CZWeapon is not correct.");
 // ------------------------------------------------------------
 typedef struct __attribute__((packed))
 {
-public:
 	CZSealBody* pEntity; //0x0000
 	Vec3 mVec; //0x0004
 	float mDistSq; //0x0010

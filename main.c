@@ -618,7 +618,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
             // @todo: find target for aimbot
             Vec2 screen;
             Vec3 wsBoneHead;
-            if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
+            if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
             {    
                 f32 dx = screen.x - 320.0f;
                 f32 dy = screen.y - 224.0f;
