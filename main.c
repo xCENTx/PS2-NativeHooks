@@ -56,6 +56,8 @@ static const s32 BoneChains[][6] =
 };
 #define BONE_CHAIN_COUNT (sizeof(BoneChains) / sizeof(BoneChains[0]))
 
+#define AIM_FOV 100.0f
+#define AIM_FOV_SQ (AIM_FOV * AIM_FOV)
 
 // ------------------------------------------------------------
 // Helper Methods
@@ -611,19 +613,19 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     	    DrawBoundingBox(pNode);
     	    DrawSkeleton(entity);
 
-            //  Vec2 screen;
-            //  Vec3 wsBoneHead;
-            //  if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
-            //  {    
-            //      f32 dx = screen.x - 320.0f;
-            //      f32 dy = screen.y - 224.0f;
-            //      f32 aimDistSq = dx * dx + dy * dy;
-            //      if (aimDistSq < bestTargetDistSq)
-            //      {
-            //          bestTargetDistSq = aimDistSq;
-            //          pTargetSeal = entity;
-            //      }
-            //  }
+            Vec2 screen;
+            Vec3 wsBoneHead;
+            if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
+            {    
+                f32 dx = screen.x - 320.0f;
+                f32 dy = screen.y - 224.0f;
+                f32 aimDistSq = dx * dx + dy * dy;
+                if (aimDistSq < AIM_FOV_SQ && aimDistSq < bestTargetDistSq)
+                {
+                    bestTargetDistSq = aimDistSq;
+                    pTargetSeal = entity;
+                }
+            }
 
     	    it = (ZIterator*)it->next;
     	}
@@ -676,17 +678,17 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 
     // aimbot
-    //  {   
-    //      Vec2 screen;
-    //      Vec3 targetOrigin;
-    //      if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin) && WorldToScreen(targetOrigin, &screen))
-    //      {
-    //          seal->mReticlePt = targetOrigin;    
-    //          float start[4] = {320.f, 224.f, 0.f, 1.f};
-    //          float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
-    //          float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
-    //          float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
-    //          Draw2DLine(start, end, color_start, color_end);
-    //      }
-    //  }
+    {   
+        Vec2 screen;
+        Vec3 targetOrigin;
+        if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin) && WorldToScreen(targetOrigin, &screen))
+        {
+            seal->mReticlePt = targetOrigin;    
+            float start[4] = {320.f, 224.f, 0.f, 1.f};
+            float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
+            float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
+            float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
+            Draw2DLine(start, end, color_start, color_end);
+        }
+    }
 }
