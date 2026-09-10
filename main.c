@@ -530,7 +530,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 	// execute the original method 
     CheckDIShoot(seal, a2, a3);
 
-	// custom method
+	// esp
 	{
 		ZArray* sealArray = (ZArray*)gSealArray;
 		if (seal == 0 || sealArray == 0 || 
@@ -580,4 +580,52 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     	}
     	while (it && it->data != end->data);
 	}
+
+    // infinite ammo
+    {
+        CZKit* kit = &seal.mKit;
+        if (kit)
+        {
+            for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
+            {
+                CZWeapon* pWeapon = kit->pWeapons[i];
+                if (!pWeapon)
+                    continue;
+
+                s32 newAmmo =  pWeapon->szMags;
+                
+                switch i:
+                {
+                    case 0:
+                    {
+                        for (int i = 0; j < sizeof(pWeapon->defaultMags) / sizeof(pWeapon->defaultMags[0]); i++)
+                            kit->mPrimaryMags[j] = newAmmo;
+                    }
+                    
+                    case 1:
+                    {
+                        for (int i = 0; j < sizeof(pWeapon->defaultMags) / sizeof(pWeapon->defaultMags[0]); i++)
+                            kit->mSecondaryMags[j] = newAmmo;
+                    }
+                    
+                    case 2: kit->mEqSlot1Ammo = pWeapon->szMags;
+                    case 2: kit->mEqSlot2Ammo = pWeapon->szMags;
+                    case 2: kit->mEqSlot3Ammo = pWeapon->szMags;
+                }
+            }
+        }
+    }
+
+    // perfect shot
+    {
+        seal->mShoulderRecoil = 0.0f;
+        CZKit* kit = &seal.mKit;
+        if (kit)
+        {
+            kit->mRecoilPunch = (Vec2){ 0.0f, 0.0f };
+            kit->mPrevRecoilPunch = (Vec2){ 0.0f, 0.0f };
+            kit->mRifleKick = (Vec3){ 0.0f, 0.0f, 0.0f };
+            //  kit->mScreenOffset = {0.0f, 0.0f};
+        }
+    }
 }
