@@ -422,11 +422,11 @@ static inline __attribute__((always_inline))
 bool GetBoneWorldPosByIndex(CZSealBody* entity, FT_BONE idx, Vec3* wsOrigin)
 {
     if (entity == 0 || wsOrigin == 0)
-        return;
+        return false;
 
     CZBodyPart* bone = entity->mSkeleton[idx];
     if (!bone)
-        return;
+        return false;
 
     *wsOrigin = GetBoneWorldPosition(entity, bone);
 
@@ -535,7 +535,7 @@ void DrawStringTest(C2DString* string, C2DFont* font, void* camera, s32 x, s32 y
 	C2DString_Draw(string, camera);
 }
 
-bool IsVisible(CZSeal* fromEntity, CZSeal* toEntity)
+bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
 {
     if (fromEntity == 0 || toEntity == 0 || fromEntity->mTargetCount <= 0 || fromEntity->pTargetArray == 0)
         return false;
@@ -625,7 +625,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
                 f32 aimDistSq = dx * dx + dy * dy;
                 if (aimDistSq < bestTargetDistSq)
                 {
-                    bestTargetDistSq = distSq;
+                    bestTargetDistSq = aimDistSq;
                     pTargetSeal = entity;
                 }
             }
@@ -683,15 +683,15 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
         Vec3 targetOrigin;
         if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin))
         {
-            seal->mReticlePoint = targetOrigin;
+            seal->mReticlePt = targetOrigin;
 
             Vec2 screen;
             if (WorldToScreen(targetOrigin, &screen))
             {
-                float start[4] {320.f, 224.f, 0.f, 1.f};
-                float end[4]{screen.x, screen.y, 0.0f, 1.0f};
-                float color_start[4]{1.0f, 1.0f, 1.0f, 0.3f};
-                float color_end[4]{1.f, 0.0f, 0.0f, 0.75f};
+                float start[4] = {320.f, 224.f, 0.f, 1.f};
+                float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
+                float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
+                float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
                 Draw2DLine(start, end, color_start, color_end);
             }
         }
