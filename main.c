@@ -542,10 +542,10 @@ bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
 
     for ( int i = 0; i < fromEntity->mTargetCount; i++)
     {
-        CTarget& pTarget = fromEntity->pTargetArray[i];
+        CTarget* pTarget = &fromEntity->pTargetArray[i];
 
-        if (pTarget.pEntity == toEntity)
-            return pTarget.m_visible;
+        if (pTarget->pEntity == toEntity)
+            return pTarget->m_visible;
     }
 
     return false;
