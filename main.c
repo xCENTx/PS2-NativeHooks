@@ -530,6 +530,9 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 	// execute the original method 
     CheckDIShoot(seal, a2, a3);
 
+    if (seal->mHealth <= 0.0f)
+        return;
+
 	// esp
 	{
 		ZArray* sealArray = (ZArray*)gSealArray;
@@ -576,6 +579,9 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     	    DrawBoundingBox(pNode);
     	    DrawSkeleton(entity);
 
+
+            // @todo: find target for aimbot
+
     	    it = (ZIterator*)it->next;
     	}
     	while (it && it->data != end->data);
@@ -583,7 +589,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 
     // infinite ammo
     {
-        CZKit* kit = &seal.mKit;
+        CZKit* kit = &seal->mKit;
         if (kit)
         {
             for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
@@ -594,23 +600,23 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 
                 s32 newAmmo =  pWeapon->szMags;
                 
-                switch i:
+                switch (i):
                 {
                     case 0:
                     {
-                        for (int i = 0; j < sizeof(pWeapon->defaultMags) / sizeof(pWeapon->defaultMags[0]); i++)
+                        for (int j = 0; j < sizeof(pWeapon->defaultMags) / sizeof(pWeapon->defaultMags[0]); j++)
                             kit->mPrimaryMags[j] = newAmmo;
                     }
                     
                     case 1:
                     {
-                        for (int i = 0; j < sizeof(pWeapon->defaultMags) / sizeof(pWeapon->defaultMags[0]); i++)
+                        for (int j = 0; j < sizeof(pWeapon->defaultMags) / sizeof(pWeapon->defaultMags[0]); j++)
                             kit->mSecondaryMags[j] = newAmmo;
                     }
                     
                     case 2: kit->mEqSlot1Ammo = pWeapon->szMags;
-                    case 2: kit->mEqSlot2Ammo = pWeapon->szMags;
-                    case 2: kit->mEqSlot3Ammo = pWeapon->szMags;
+                    case 3: kit->mEqSlot2Ammo = pWeapon->szMags;
+                    case 4: kit->mEqSlot3Ammo = pWeapon->szMags;
                 }
             }
         }
@@ -619,7 +625,8 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     // perfect shot
     {
         seal->mShoulderRecoil = 0.0f;
-        CZKit* kit = &seal.mKit;
+        
+        CZKit* kit = &seal->mKit;
         if (kit)
         {
             kit->mRecoilPunch = (Vec2){ 0.0f, 0.0f };
@@ -627,5 +634,10 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
             kit->mRifleKick = (Vec3){ 0.0f, 0.0f, 0.0f };
             //  kit->mScreenOffset = {0.0f, 0.0f};
         }
+    }
+
+    // aimbot
+    {
+
     }
 }
