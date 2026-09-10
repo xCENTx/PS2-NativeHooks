@@ -35,6 +35,38 @@ typedef struct CZSealBody CZSealBody;
 // Enums
 // ------------------------------------------------------------
 
+typedef s8 RDR_COMMAND;
+
+enum
+{
+	RDR_AFTER_ERROR_REBOOT,
+	RDR_AFTER_REBOOT,
+    RDR_EXIT,
+    RDR_INTRO,
+    RDR_LOAD,
+    RDR_MP_FINAL,
+    RDR_MP_ROUND,
+    RDR_NET_ABANDONED,
+    RDR_NET_ABORT,
+    RDR_NET_ERROR,
+    RDR_RETURN_FROM_NET_GUI
+};
+
+typedef s8 LAUNCH_COMMAND;
+
+enum
+{
+    LAUNCH_CMD_m,   // main
+};
+
+typedef s8 LAUNCH_FLAG;
+
+enum
+{
+    LAUNCH_FLAGS_NONE
+};
+
+
 typedef s8 FT_COMMAND;
 
 enum

@@ -1,7 +1,6 @@
 EE_BIN = ../bin/PS2-NativeHooks.elf
 EE_OBJS = main.o
 EE_INCS = -I.
-EE_LDFLAGS = -T linker.ld
 EE_LIBS = -ldebug -lkernel
 
 all: $(EE_BIN)

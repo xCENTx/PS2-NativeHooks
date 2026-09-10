@@ -3,6 +3,8 @@
 
 #include "structs.h"
 
+#define SOCOM_ELF_PATH "cdrom0:\\SCUS_971.34;1"
+
 
 // ------------------------------------------------------------
 // Globals
@@ -55,5 +57,46 @@ typedef CZSealBody*(*ftsGetPlayer_t)(); // gets the local player
 
 typedef void(*ftsSetPlayer_t)(CZSealBody* pPlayer); // sets the local player
 #define ftsSetPlayer ((ftsSetPlayer_t)0x00200020)
+
+// ------------------------------------------------------------
+// Constants
+// ------------------------------------------------------------
+
+char* launch_cmd[] =
+{
+    "-m",
+};
+
+char* load_arg[] =
+{
+    "dlgExitState.rdr",
+    "dlgGameLobby.rdr",
+    "dlgIntroScreen.rdr",
+    "dlgLoad.rdr",
+    "dlgMultiplayerFinal.rdr",  
+    "dlgMultiplayerRound.rdr",
+    "dlgNetAbort.rdr",
+    "dlgNetError.rdr"
+};
+
+char* launch_arg[] =
+{
+    "dlgAfterErrorReboot.rdr",
+    "dlgAfterReboot.rdr",
+    "dlgExitState.rdr",     // -- black screen
+    "dlgIntroScreen.rdr",   // -- normal launch
+    "dlgLoad.rdr",          // -- black screen "press triangle button to return to the lobby"
+    "dlgMultiplayerFinal.rdr",  
+    "dlgMultiplayerRound.rdr",
+    "dlgNetAbandoned.rdr",
+    "dlgNetAbort.rdr",
+    "dlgNetError.rdr",
+    "dlgReturnFromNTGUI2.rdr" // -- launches to mulitplayer menu 
+};
+
+char* launch_flag[] =
+{
+    "--none",
+};
 
 #endif
