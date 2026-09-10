@@ -554,6 +554,114 @@ bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
     return false;
 }
 
+static inline __attribute__((always_inline))
+GSXYZ2 MakeGSVertex(f32 x, f32 y)
+{
+    GSXYZ2 v;
+
+    v.x = (s32)(x * 16.0f);
+    v.y = (s32)(y * 16.0f);
+
+    v.z = 1000000000;
+    v.w = 0;
+
+    v.x -= 0x9400;
+    v.y -= 0x8E00;
+
+    return v;
+}
+
+static inline __attribute__((always_inline))
+void SetGSColor( GSRGBAQ *out, Vec4 color)
+{
+    f32 rgba[4];
+
+    rgba[0] = color.x * 255.0f;
+    rgba[1] = color.y * 255.0f;
+    rgba[2] = color.z * 255.0f;
+    rgba[3] = color.w * 128.0f;
+
+    sceVu0FTOI0Vector( (s32 *)out, rgba );
+}
+
+// rewrite of Draw2DLine
+static inline __attribute__((always_inline))
+void Draw2DLineNative(f32 x1, f32 y1, f32 x2, f32 y2, Vec4 color_start, Vec4 color_end)
+{
+    GSLinePacket *packet;
+    u64 prim;
+
+    packet = (GSLinePacket *)zSysSprGetPacket_FPP1(0);
+
+    if (!packet)
+        return;
+
+    /*
+     * GS PRIM
+     *
+     * 0x01 = LINE
+     * 0x08 = IIP
+     * 0x40 = ABE
+     * 0x80 = AA1
+     */
+    prim = 0x89; /* LINE | IIP | AA1 */
+
+    if (color_start.w != 1.0f || color_end.w != 1.0f)
+        prim |= 0x40;
+
+    /*
+     * GIF tag
+     *
+     * NLOOP = 2
+     * PRE   = 1
+     * PRIM  = prim
+     * NREG  = 2
+     */
+    packet->gif_tag = (prim << 47) | 0x2000400000008002ULL;
+
+    /*
+     * Packed register descriptor:
+     *
+     * RGBAQ
+     * XYZ2
+     */
+    packet->gif_regs = 0x41;
+
+    /*
+     * Vertex 0
+     */
+    SetGSColor( &packet->vertices[0].rgba, color_start );
+
+    packet->vertices[0].xyz = MakeGSVertex(x1, y1);
+
+    /*
+     * Vertex 1
+     */
+    SetGSColor( &packet->vertices[1].rgba, color_end );
+
+    packet->vertices[1].xyz = MakeGSVertex(x2, y2);
+
+    /*
+     * DMA tag
+     *
+     * SOCOM original:
+     *
+     * +00 = 0x10000005
+     * +04 = 0
+     * +08 = 0x11000000
+     * +0C = 0x50000005
+     */
+    packet->dma[0] = 0x10000005;
+    packet->dma[1] = 0x00000000;
+    packet->dma[2] = 0x11000000;
+    packet->dma[3] = 0x50000005;
+
+    /*
+     * Total packet size = 6 qwords
+     */
+    zSysFifoKick( packet, 6 );
+}
+
 // ------------------------------------------------------------
 // Native Hook
 // ------------------------------------------------------------
@@ -610,7 +718,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     	        continue;
     	    }
 
-    	    DrawBoundingBox(pNode);
+    	    //  DrawBoundingBox(pNode);
     	    DrawSkeleton(entity);
 
             Vec2 screen;
@@ -684,11 +792,12 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
         if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin) && WorldToScreen(targetOrigin, &screen))
         {
             seal->mReticlePt = targetOrigin;    
-            float start[4] = {320.f, 224.f, 0.f, 1.f};
-            float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
-            float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
-            float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
-            Draw2DLine(start, end, color_start, color_end);
+            //  float start[4] = {320.f, 224.f, 0.f, 1.f};
+            //  float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
+            //  float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
+            //  float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
+            //  Draw2DLine(start, end, color_start, color_end);
+            Draw2DLineNative(320.f, 224.f, screen.x, screen.y, (Vec4){1.0f, 1.0f, 1.0f, 0.5f}, (Vec4){1.0f, 0.0f, 0.0f, 0.5f} );
         }
     }
 }
