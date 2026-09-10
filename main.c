@@ -602,19 +602,19 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
             {
                 case 0:
                 {
-                    for (int j = 0; j < sizeof(pWeapon->defaultMags) / sizeof(pWeapon->defaultMags[0]); j++)
+                    for (int j = 0; j < pWeapon->defaultMags; j++)
                         kit->mPrimaryMags[j] = newAmmo;
                 }
                 
                 case 1:
                 {
-                    for (int j = 0; j < sizeof(pWeapon->defaultMags) / sizeof(pWeapon->defaultMags[0]); j++)
+                    for (int j = 0; j < pWeapon->defaultMags; j++)
                         kit->mSecondaryMags[j] = newAmmo;
                 }
                 
-                case 2: kit->mEqSlot1Ammo = pWeapon->szMags;
-                case 3: kit->mEqSlot2Ammo = pWeapon->szMags;
-                case 4: kit->mEqSlot3Ammo = pWeapon->szMags;
+                case 2: kit->mEqSlot1Ammo = newAmmo;
+                case 3: kit->mEqSlot2Ammo = newAmmo;
+                case 4: kit->mEqSlot3Ammo = newAmmo;
             }
         }
     }
