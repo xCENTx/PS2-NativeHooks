@@ -35,6 +35,38 @@ typedef struct CZSealBody CZSealBody;
 // Enums
 // ------------------------------------------------------------
 
+typedef s8 RDR_COMMAND;
+
+enum
+{
+	RDR_AFTER_ERROR_REBOOT,
+	RDR_AFTER_REBOOT,
+    RDR_EXIT,
+    RDR_INTRO,
+    RDR_LOAD,
+    RDR_MP_FINAL,
+    RDR_MP_ROUND,
+    RDR_NET_ABANDONED,
+    RDR_NET_ABORT,
+    RDR_NET_ERROR,
+    RDR_RETURN_FROM_NET_GUI
+};
+
+typedef s8 LAUNCH_COMMAND;
+
+enum
+{
+    LAUNCH_CMD_m,   // main
+};
+
+typedef s8 LAUNCH_FLAG;
+
+enum
+{
+    LAUNCH_FLAGS_NONE
+};
+
+
 typedef s8 FT_COMMAND;
 
 enum
@@ -626,6 +658,25 @@ static_assert(sizeof(CZWeapon) == 0xAC, "Size of CZWeapon is not correct.");
 // ------------------------------------------------------------
 // Seal
 // ------------------------------------------------------------
+typedef struct __attribute__((packed))
+{
+	CZSealBody* pEntity; //0x0000
+	Vec3 mVec; //0x0004
+	f32 mDistSq; //0x0010
+	f32 mDist; //0x0014
+	f32 mVisibility; //0x0018
+	f32 mAware; //0x001C
+	s32 mDiHandle; //0x0020
+	u8 m_d_computed : 1;
+	u8 m_known      : 1;
+	u8 m_visible    : 1;
+	u8 m_hostile    : 1;
+	u8 m_targeted   : 1;
+	u8 m_dirty_di   : 1;
+	u8 m_unused     : 2;
+	char pad_0025[3]; //0x0025
+} CTarget; //Size: 0x0028
+static_assert(sizeof(CTarget) == 0x28, "Size of CTarget is not correct.");
 
 struct CZBodyPart
 {
@@ -678,9 +729,9 @@ typedef struct
 	s32 mCurItemReticule; //0x004C
 	Vec2 mScreenOffset; //0x0050
 	char pad_0058[132]; //0x0058
-	u32 pWeapons[10]; //0x00DC  // CZWeapon*
+	CZWeapon* pWeapons[10]; //0x00DC
 	char pad_0104[80]; //0x0104
-	u32 pAmmoTypes[10]; //0x0154  // CZAmmo*
+	CZAmmo* pAmmoTypes[10]; //0x0154
 	char pad_017C[80]; //0x017C
 	s32 mPrimaryMags[10]; //0x01CC
 	s32 mSecondaryMags[10]; //0x01F4
@@ -727,7 +778,7 @@ struct CZSealBody
 	f32 mMaxTargetRange; //0x00C8
 	s32 mMaxTargetCount; //0x00CC
 	s32 mTargetCount; //0x00D0
-	u32 pTargetArray; //0x00D4 //  targetArray*
+	CTarget* pTargetArray; //0x00D4
 	s32 mAwareCounter; //0x00D8
 	u32 mEntityBits; //0x00DC
 	char pad_00E0[128]; //0x00E0

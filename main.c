@@ -1,5 +1,5 @@
-#include "include/structs.h"
-#include "include/game.h"
+#include "games/SOCOM/structs.h"
+#include "games/SOCOM/game.h"
 
 // ------------------------------------------------------------
 // statics
@@ -56,6 +56,8 @@ static const s32 BoneChains[][6] =
 };
 #define BONE_CHAIN_COUNT (sizeof(BoneChains) / sizeof(BoneChains[0]))
 
+#define AIM_FOV 100.0f
+#define AIM_FOV_SQ (AIM_FOV * AIM_FOV)
 
 // ------------------------------------------------------------
 // Helper Methods
@@ -419,6 +421,21 @@ Vec3 GetBoneWorldPosition(CZSealBody* entity, CZBodyPart* bone)
 }
 
 static inline __attribute__((always_inline))
+bool GetBoneWorldPosByIndex(CZSealBody* entity, FT_BONE idx, Vec3* wsOrigin)
+{
+    if (entity == 0 || wsOrigin == 0)
+        return false;
+
+    CZBodyPart* bone = entity->mSkeleton[idx];
+    if (!bone)
+        return false;
+
+    *wsOrigin = GetBoneWorldPosition(entity, bone);
+
+    return true;
+}
+
+static inline __attribute__((always_inline))
 void DebugDrawSkeleton(CZSealBody* entity)
 {
     if (entity == 0 || entity->pNode == 0)
@@ -520,6 +537,23 @@ void DrawStringTest(C2DString* string, C2DFont* font, void* camera, s32 x, s32 y
 	C2DString_Draw(string, camera);
 }
 
+static inline __attribute__((always_inline))
+bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
+{
+    if (fromEntity == 0 || toEntity == 0 || fromEntity->mTargetCount <= 0 || fromEntity->pTargetArray == 0)
+        return false;
+
+    for ( int i = 0; i < fromEntity->mTargetCount; i++)
+    {
+        CTarget* pTarget = &fromEntity->pTargetArray[i];
+
+        if (pTarget->pEntity == toEntity)
+            return pTarget->m_visible;
+    }
+
+    return false;
+}
+
 // ------------------------------------------------------------
 // Native Hook
 // ------------------------------------------------------------
@@ -530,7 +564,10 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 	// execute the original method 
     CheckDIShoot(seal, a2, a3);
 
-	// custom method
+    CZSealBody* pTargetSeal = 0;
+    f32 bestTargetDistSq = 99999999.0f;
+	
+    // esp
 	{
 		ZArray* sealArray = (ZArray*)gSealArray;
 		if (seal == 0 || sealArray == 0 || 
@@ -559,8 +596,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 
     	    // check if entity is rendered
     	    CNode* pNode = (CNode*)entity->pNode;
-    	    //	if (pNode == 0 || CNode_Rendered(pNode) == 0)
-    	    if (pNode == 0)
+    	    if (pNode == 0 || CNode_Rendered(pNode) == 0) // CNode_Rendered sometimes fails and causes unrendered entities to show up which looks like flickering
     	    {
     	        it = (ZIterator*)it->next;
     	        continue;
@@ -574,31 +610,85 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     	        continue;
     	    }
 
-			/// 3D Drawing
     	    DrawBoundingBox(pNode);
     	    DrawSkeleton(entity);
-    	    //	DrawLineVec3(seal->mOrigin, entity->mOrigin, (Vec3){ 1.0f, 1.0f, 1.0f });
 
-			/// 2D Drawing
-			//	Vec2 screen;
-			//	Vec2 screen_2;
-			//	if (WorldToScreen(entity->mOrigin, &screen) && WorldToScreen(seal->mOrigin, &screen_2))
-			//		DrawLineVec2( screen.x, screen.y, screen_2.x, screen_2.y, (Vec4){ 1.0f, 1.0f, 1.0f, 1.0f } );
+            Vec2 screen;
+            Vec3 wsBoneHead;
+            if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
+            {    
+                f32 dx = screen.x - 320.0f;
+                f32 dy = screen.y - 224.0f;
+                f32 aimDistSq = dx * dx + dy * dy;
+                if (aimDistSq < AIM_FOV_SQ && aimDistSq < bestTargetDistSq)
+                {
+                    bestTargetDistSq = aimDistSq;
+                    pTargetSeal = entity;
+                }
+            }
 
     	    it = (ZIterator*)it->next;
     	}
     	while (it && it->data != end->data);
-
-		/// test draw string
-		//	CHUD* hud = (CHUD*)gHud;
-		//	CZCamera* camera = (CZCamera*)gCamera;
-		//	if (hud && camera)
-		//	{
-		//		OrdersMenu* menu = &hud->s_OrdersMenu;
-		//		C2DFont* font = menu->pFont;
-		//		C2DOrderItem* pItem = menu->pTeamItems;
-		//		if (pItem && font)
-		//			DrawStringTest(&pItem->mText, font, camera, 100, 100);
-		//	}
 	}
+
+    // infinite ammo
+    {
+        CZKit* kit = &seal->mKit;
+        for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
+        {
+            CZWeapon* pWeapon = kit->pWeapons[i];
+            if (!pWeapon)
+                continue;
+
+            s32 newAmmo =  pWeapon->szMags;
+            
+            switch (i)
+            {
+                case 0:
+                {
+                    for (int j = 0; j < pWeapon->defaultMags; j++)
+                        kit->mPrimaryMags[j] = newAmmo;
+                    break;
+                }
+                
+                case 1:
+                {
+                    for (int j = 0; j < pWeapon->defaultMags; j++)
+                        kit->mSecondaryMags[j] = newAmmo;
+                    break;
+                }
+                
+                case 2: kit->mEqSlot1Ammo = newAmmo; break;
+                case 3: kit->mEqSlot2Ammo = newAmmo; break;
+                case 4: kit->mEqSlot3Ammo = newAmmo; break;
+            }
+        }
+    }
+
+    // perfect shot
+    {
+        seal->mShoulderRecoil = 0.0f;
+        
+        CZKit* kit = &seal->mKit;
+        kit->mRecoilPunch = (Vec2){ 0.0f, 0.0f };
+        kit->mPrevRecoilPunch = (Vec2){ 0.0f, 0.0f };
+        kit->mRifleKick = (Vec3){ 0.0f, 0.0f, 0.0f };
+        //  kit->mScreenOffset = {0.0f, 0.0f};
+    }
+
+    // aimbot
+    {   
+        Vec2 screen;
+        Vec3 targetOrigin;
+        if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin) && WorldToScreen(targetOrigin, &screen))
+        {
+            seal->mReticlePt = targetOrigin;    
+            float start[4] = {320.f, 224.f, 0.f, 1.f};
+            float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
+            float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
+            float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
+            Draw2DLine(start, end, color_start, color_end);
+        }
+    }
 }
