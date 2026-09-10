@@ -561,10 +561,6 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 	// execute the original method 
     CheckDIShoot(seal, a2, a3);
 
-    if (seal->mHealth <= 0.0f)
-        return;
-
-
     CZSealBody* pTargetSeal = 0;
     f32 bestTargetDistSq = 99999999.0f;
 	
