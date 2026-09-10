@@ -610,19 +610,19 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     	    DrawBoundingBox(pNode);
     	    DrawSkeleton(entity);
 
-            Vec2 screen;
-            Vec3 wsBoneHead;
-            if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
-            {    
-                f32 dx = screen.x - 320.0f;
-                f32 dy = screen.y - 224.0f;
-                f32 aimDistSq = dx * dx + dy * dy;
-                if (aimDistSq < bestTargetDistSq)
-                {
-                    bestTargetDistSq = aimDistSq;
-                    pTargetSeal = entity;
-                }
-            }
+            //  Vec2 screen;
+            //  Vec3 wsBoneHead;
+            //  if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
+            //  {    
+            //      f32 dx = screen.x - 320.0f;
+            //      f32 dy = screen.y - 224.0f;
+            //      f32 aimDistSq = dx * dx + dy * dy;
+            //      if (aimDistSq < bestTargetDistSq)
+            //      {
+            //          bestTargetDistSq = aimDistSq;
+            //          pTargetSeal = entity;
+            //      }
+            //  }
 
     	    it = (ZIterator*)it->next;
     	}
