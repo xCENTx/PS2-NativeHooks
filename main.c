@@ -614,8 +614,6 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     	    DrawBoundingBox(pNode);
     	    DrawSkeleton(entity);
 
-
-            // @todo: find target for aimbot
             Vec2 screen;
             Vec3 wsBoneHead;
             if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
@@ -679,21 +677,17 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 
     // aimbot
-    {
-        Vec3 targetOrigin;
-        if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin))
-        {
-            seal->mReticlePt = targetOrigin;
-
-            Vec2 screen;
-            if (WorldToScreen(targetOrigin, &screen))
-            {
-                float start[4] = {320.f, 224.f, 0.f, 1.f};
-                float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
-                float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
-                float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
-                Draw2DLine(start, end, color_start, color_end);
-            }
-        }
-    }
+    //  {   
+    //      Vec2 screen;
+    //      Vec3 targetOrigin;
+    //      if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin) && WorldToScreen(targetOrigin, &screen))
+    //      {
+    //          seal->mReticlePt = targetOrigin;    
+    //          float start[4] = {320.f, 224.f, 0.f, 1.f};
+    //          float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
+    //          float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
+    //          float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
+    //          Draw2DLine(start, end, color_start, color_end);
+    //      }
+    //  }
 }

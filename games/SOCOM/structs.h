@@ -662,18 +662,18 @@ typedef struct __attribute__((packed))
 {
 	CZSealBody* pEntity; //0x0000
 	Vec3 mVec; //0x0004
-	float mDistSq; //0x0010
-	float mDist; //0x0014
-	float mVisibility; //0x0018
-	float mAware; //0x001C
-	int mDiHandle; //0x0020
-	bool m_d_computed : 1;
-	bool m_known : 1;
-	bool m_visible : 1;
-	bool m_hostile : 1;
-	bool m_targeted : 1;
-	bool m_dirty_di : 1;
-	char m_unused : 2;
+	f32 mDistSq; //0x0010
+	f32 mDist; //0x0014
+	f32 mVisibility; //0x0018
+	f32 mAware; //0x001C
+	s32 mDiHandle; //0x0020
+	u8 m_d_computed : 1;
+	u8 m_known      : 1;
+	u8 m_visible    : 1;
+	u8 m_hostile    : 1;
+	u8 m_targeted   : 1;
+	u8 m_dirty_di   : 1;
+	u8 m_unused     : 2;
 	char pad_0025[3]; //0x0025
 } CTarget; //Size: 0x0028
 static_assert(sizeof(CTarget) == 0x28, "Size of CTarget is not correct.");
