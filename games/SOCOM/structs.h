@@ -673,7 +673,7 @@ typedef struct __attribute__((packed))
 	bool m_hostile : 1;
 	bool m_targeted : 1;
 	bool m_dirty_di : 1;
-	bool m_unused : 2;
+	char m_unused : 2;
 	char pad_0025[3]; //0x0025
 } CTarget; //Size: 0x0028
 static_assert(sizeof(CTarget) == 0x28, "Size of CTarget is not correct.");
