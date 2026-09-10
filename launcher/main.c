@@ -35,6 +35,8 @@ int main(void)
 
     wait(5);
 
+    scr_printf("fire in the hole!\n");
+
     FlushCache(0);
     FlushCache(2);
 
