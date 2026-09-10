@@ -419,6 +419,21 @@ Vec3 GetBoneWorldPosition(CZSealBody* entity, CZBodyPart* bone)
 }
 
 static inline __attribute__((always_inline))
+bool GetBoneWorldPosByIndex(CZSealBody* entity, FT_BONE idx, Vec3* wsOrigin)
+{
+    if (entity == 0 || wsOrigin == 0)
+        return;
+
+    CZBodyPart* bone = entity->mSkeleton[idx];
+    if (!bone)
+        return;
+
+    *wsOrigin = GetBoneWorldPosition(entity, bone);
+
+    return true;
+}
+
+static inline __attribute__((always_inline))
 void DebugDrawSkeleton(CZSealBody* entity)
 {
     if (entity == 0 || entity->pNode == 0)
@@ -520,6 +535,22 @@ void DrawStringTest(C2DString* string, C2DFont* font, void* camera, s32 x, s32 y
 	C2DString_Draw(string, camera);
 }
 
+bool IsVisible(CZSeal* fromEntity, CZSeal* toEntity)
+{
+    if (fromEntity == 0 || toEntity == 0 || fromEntity->mTargetCount <= 0 || fromEntity->pTargetArray == 0)
+        return false;
+
+    for ( int i = 0; i < fromEntity->mTargetCount; i++)
+    {
+        CTarget& pTarget = fromEntity->pTargetArray[i];
+
+        if (pTarget.pEntity == toEntity)
+            return pTarget.m_visible;
+    }
+
+    return false;
+}
+
 // ------------------------------------------------------------
 // Native Hook
 // ------------------------------------------------------------
@@ -533,7 +564,11 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     if (seal->mHealth <= 0.0f)
         return;
 
-	// esp
+
+    CZSealBody* pTargetSeal = 0;
+    f32 bestTargetDistSq = 99999999.0f;
+	
+    // esp
 	{
 		ZArray* sealArray = (ZArray*)gSealArray;
 		if (seal == 0 || sealArray == 0 || 
@@ -581,6 +616,19 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 
 
             // @todo: find target for aimbot
+            Vec2 screen;
+            Vec3 wsBoneHead;
+            if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
+            {    
+                f32 dx = screen.x - 320.0f;
+                f32 dy = screen.y - 224.0f;
+                f32 aimDistSq = dx * dx + dy * dy;
+                if (aimDistSq < bestTargetDistSq)
+                {
+                    bestTargetDistSq = distSq;
+                    pTargetSeal = entity;
+                }
+            }
 
     	    it = (ZIterator*)it->next;
     	}
@@ -632,6 +680,20 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 
     // aimbot
     {
+        Vec3 targetOrigin;
+        if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin))
+        {
+            seal->mReticlePoint = targetOrigin;
 
+            Vec2 screen;
+            if (WorldToScreen(targetOrigin, &screen))
+            {
+                float start[4] {320.f, 224.f, 0.f, 1.f};
+                float end[4]{screen.x, screen.y, 0.0f, 1.0f};
+                float color_start[4]{1.0f, 1.0f, 1.0f, 0.3f};
+                float color_end[4]{1.f, 0.0f, 0.0f, 0.75f};
+                Draw2DLine(start, end, color_start, color_end);
+            }
+        }
     }
 }

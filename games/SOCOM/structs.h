@@ -658,6 +658,26 @@ static_assert(sizeof(CZWeapon) == 0xAC, "Size of CZWeapon is not correct.");
 // ------------------------------------------------------------
 // Seal
 // ------------------------------------------------------------
+typedef struct __attribute__((packed))
+{
+public:
+	CZSealBody* pEntity; //0x0000
+	Vec3 mVec; //0x0004
+	float mDistSq; //0x0010
+	float mDist; //0x0014
+	float mVisibility; //0x0018
+	float mAware; //0x001C
+	int mDiHandle; //0x0020
+	bool m_d_computed : 1;
+	bool m_known : 1;
+	bool m_visible : 1;
+	bool m_hostile : 1;
+	bool m_targeted : 1;
+	bool m_dirty_di : 1;
+	bool m_unused : 2;
+	char pad_0025[3]; //0x0025
+} CTarget; //Size: 0x0028
+static_assert(sizeof(CTarget) == 0x28, "Size of CTarget is not correct.");
 
 struct CZBodyPart
 {
@@ -759,7 +779,7 @@ struct CZSealBody
 	f32 mMaxTargetRange; //0x00C8
 	s32 mMaxTargetCount; //0x00CC
 	s32 mTargetCount; //0x00D0
-	u32 pTargetArray; //0x00D4 //  targetArray*
+	CTarget* pTargetArray; //0x00D4
 	s32 mAwareCounter; //0x00D8
 	u32 mEntityBits; //0x00DC
 	char pad_00E0[128]; //0x00E0
