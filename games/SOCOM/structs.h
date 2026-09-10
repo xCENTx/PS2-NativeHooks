@@ -195,6 +195,11 @@ static_assert(sizeof(tag_RECT) == 0x10, "Size of tag_RECT is not correct.");
 // ------------------------------------------------------------
 // Drawing Primitives
 // ------------------------------------------------------------
+#define GS_ALPHA_NORMAL 0x44ULL
+#define GS_REG_ALPHA_1 0x42
+#define GS_REG_AD      0x0E
+#define CIRCLE_SEGMENTS 32
+#define CIRCLE_VERTICES ((CIRCLE_SEGMENTS + 1) * 2)
 
 typedef struct
 {
@@ -225,6 +230,30 @@ typedef struct __attribute__((aligned(16)))
     u64 gif_regs;
     GSPackedVertex vertices[2];
 } GSLinePacket;
+
+typedef struct __attribute__((aligned(16)))
+{
+    s32 dma[4];
+    u64 gif_tag;
+    u64 gif_regs;
+    GSPackedVertex vertices[4];
+} GSLineStripPacket;
+
+typedef struct __attribute__((aligned(16)))
+{
+    s32 dma[4];
+    u64 gif_tag;
+    u64 gif_regs;
+    GSPackedVertex vertices[8];
+} GSFeatherLinePacket;
+
+typedef struct __attribute__((aligned(16)))
+{
+    s32 dma[4];
+    u64 gif_tag;
+    u64 gif_regs;
+    GSPackedVertex vertices[CIRCLE_VERTICES];
+} GSCirclePacket;
 
 // ------------------------------------------------------------
 // Z containers

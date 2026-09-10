@@ -15,6 +15,7 @@
 #define gSealArray 0x4D46A0
 #define gAppCamera 0x48D488
 #define tickAnimFireWeapon 0x1B7C90
+#define g_GS_Z_OFFSET 0x0048CF50
 
 // ------------------------------------------------------------
 // Native functions
@@ -67,6 +68,9 @@ typedef void(*sceVu0FTOI0Vector_t)(s32* a1, f32* a2);
 typedef void(*sceVu0CopyVector_t)(void* a1, void* a2);
 #define sceVu0CopyVector ((sceVu0CopyVector_t)0x151898)
 
+typedef void(*sceVu0RotTransPers_t)(s32* dst, f32* mtx, f32* src, s32 mode);
+#define sceVu0RotTransPers ((sceVu0RotTransPers_t)0x1520E8)
+
 typedef void(*zSysFifoKick_t)(void* a1, s32 a2);
 #define zSysFifoKick ((zSysFifoKick_t)0x30CFB0)
 
@@ -111,5 +115,8 @@ char* launch_flag[] =
 {
     "--none",
 };
+
+
+
 
 #endif
