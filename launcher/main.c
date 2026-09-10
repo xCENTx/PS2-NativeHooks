@@ -3,21 +3,98 @@
 #include <sifrpc.h>
 
 #define SOCOM_ELF_PATH "cdrom0:\\SCUS_971.34;1"
-#define SOCOM_MENU_OPTION "-m"
-#define SOCOM_MENU_RESOURCE "dlgReturnFromNTGUI2.rdr"
+
+typedef signed char RDR_COMMANDS;
+enum RDR_COMMANDS
+{
+    RDR_INTRO,
+    RDR_EXIT,
+    RDR_LOAD,
+    RDR_MP_FINAL,
+    RDR_MP_ROUND,
+    RDR_NET_ABANDONED,
+    RDR_NET_ABORT,
+    RDR_NET_ERROR,
+    RDR_NET_RETURN,
+    RDR_RETURN_FROM_NET_GUI
+
+};
+
+char* launch_arg[] =
+{
+    "dlgIntroScreen.rdr",   // -- normal launch
+    "dlgExitState.rdr",     // -- black screen
+    "dlgLoad.rdr",          // -- black screen "press triangle button to return to the lobby"
+    "dlgMultiplayerFinal.rdr",  
+    "dlgMultiplayerRound.rdr",
+    "dlgNetAbandoned.rdr",
+    "dlgNetAbort.rdr",
+    "dlgNetError.rdr",
+    "dlgNetReturn.rdr",
+    "dlgReturnFromNTGUI2.rdr" // -- launches to mulitplayer menu 
+};
+
+char* launch_cmd[] = 
+{
+    "-m",
+    "--AP",
+    "--ammo",
+    "--cdsounds",
+    "--nosounds",
+    "--displaysounds",
+    "--debugmusic",
+    "--ffire",
+    "--nofireanim",
+    "--noimpactanim",
+    "--nowepintersection",
+    "--ailog",
+    "--noenemy",
+    "--noalpha",
+    "--nobravo",
+    "--aid",
+    "--isolate",        // <character>
+    "--noaifilter",
+    "--player_grid",
+    "--player_grid",    // <number>
+    "--noobj",
+    "--nodie",
+    "--nosee",
+    "--log",
+    "--dumplog",
+    "--nomenu",
+    "--menu",
+    "--invert_pitch",
+    "--pad2",
+    "--squirm",
+    "--two_player",
+    "--no_radar",
+    "--radar",
+    "--multi",
+    "--medius",
+    "--nomedius",
+    "--voice",
+    "--voiced",
+    "--noghost",
+    "--e3seal",
+    "--e3terr",
+    "--dlgrdr",
+    "--nodi",
+    "--noalt",
+    "--noint",
+};
 
 void wait(int seconds)
 {
     for (int i = 0; i < seconds: i++)
-        DelayThread(1000000)
+        DelayThread(1000000);
 }
 
 int main(void)
 {
     char *args[] =
     {
-        SOCOM_MENU_OPTION,
-        SOCOM_MENU_RESOURCE,
+        launch_cmd[0],
+        launch_arg[RDR_RETURN_FROM_NET_GUI],
         NULL
     };
 
