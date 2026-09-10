@@ -561,8 +561,8 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 	// execute the original method 
     CheckDIShoot(seal, a2, a3);
 
-    CZSealBody* pTargetSeal = 0;
-    f32 bestTargetDistSq = 99999999.0f;
+    //  CZSealBody* pTargetSeal = 0;
+    //  f32 bestTargetDistSq = 99999999.0f;
 	
     // esp
 	{
@@ -646,17 +646,19 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
                 {
                     for (int j = 0; j < pWeapon->defaultMags; j++)
                         kit->mPrimaryMags[j] = newAmmo;
+                    break;
                 }
                 
                 case 1:
                 {
                     for (int j = 0; j < pWeapon->defaultMags; j++)
                         kit->mSecondaryMags[j] = newAmmo;
+                    break;
                 }
                 
-                case 2: kit->mEqSlot1Ammo = newAmmo;
-                case 3: kit->mEqSlot2Ammo = newAmmo;
-                case 4: kit->mEqSlot3Ammo = newAmmo;
+                case 2: kit->mEqSlot1Ammo = newAmmo; break;
+                case 3: kit->mEqSlot2Ammo = newAmmo; break;
+                case 4: kit->mEqSlot3Ammo = newAmmo; break;
             }
         }
     }
