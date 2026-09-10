@@ -40,7 +40,7 @@ $OBJCOPY \
     "$BINARY"
 
 echo "[4/4] Generating PNACH..."
-python3 GENPNach.py \
+python3 GENPnach.py \
     "$HOOK_ADDR" \
     "$CODE_CAVE" \
     "$BINARY" \

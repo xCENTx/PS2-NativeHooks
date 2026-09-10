@@ -1,5 +1,6 @@
 #include <debug.h>
 #include <kernel.h>
+#include <delaythread.h>
 #include <sifrpc.h>
 
 #include "../game/structs.h"
@@ -7,7 +8,7 @@
 
 void wait(int seconds)
 {
-    for (int i = 0; i < seconds: i++)
+    for (int i = 0; i < seconds; i++)
         DelayThread(1000000);
 }
 
