@@ -710,9 +710,9 @@ typedef struct
 	s32 mCurItemReticule; //0x004C
 	Vec2 mScreenOffset; //0x0050
 	char pad_0058[132]; //0x0058
-	u32 pWeapons[10]; //0x00DC  // CZWeapon*
+	CZWeapon* pWeapons[10]; //0x00DC
 	char pad_0104[80]; //0x0104
-	u32 pAmmoTypes[10]; //0x0154  // CZAmmo*
+	CZAmmo* pAmmoTypes[10]; //0x0154
 	char pad_017C[80]; //0x017C
 	s32 mPrimaryMags[10]; //0x01CC
 	s32 mSecondaryMags[10]; //0x01F4
