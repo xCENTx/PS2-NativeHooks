@@ -559,8 +559,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 
     	    // check if entity is rendered
     	    CNode* pNode = (CNode*)entity->pNode;
-    	    //	if (pNode == 0 || CNode_Rendered(pNode) == 0)
-    	    if (pNode == 0)
+    	    if (pNode == 0 || CNode_Rendered(pNode) == 0) // CNode_Rendered sometimes fails and causes unrendered entities to show up which looks like flickering
     	    {
     	        it = (ZIterator*)it->next;
     	        continue;
@@ -574,31 +573,11 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     	        continue;
     	    }
 
-			/// 3D Drawing
     	    DrawBoundingBox(pNode);
     	    DrawSkeleton(entity);
-    	    //	DrawLineVec3(seal->mOrigin, entity->mOrigin, (Vec3){ 1.0f, 1.0f, 1.0f });
-
-			/// 2D Drawing
-			//	Vec2 screen;
-			//	Vec2 screen_2;
-			//	if (WorldToScreen(entity->mOrigin, &screen) && WorldToScreen(seal->mOrigin, &screen_2))
-			//		DrawLineVec2( screen.x, screen.y, screen_2.x, screen_2.y, (Vec4){ 1.0f, 1.0f, 1.0f, 1.0f } );
 
     	    it = (ZIterator*)it->next;
     	}
     	while (it && it->data != end->data);
-
-		/// test draw string
-		//	CHUD* hud = (CHUD*)gHud;
-		//	CZCamera* camera = (CZCamera*)gCamera;
-		//	if (hud && camera)
-		//	{
-		//		OrdersMenu* menu = &hud->s_OrdersMenu;
-		//		C2DFont* font = menu->pFont;
-		//		C2DOrderItem* pItem = menu->pTeamItems;
-		//		if (pItem && font)
-		//			DrawStringTest(&pItem->mText, font, camera, 100, 100);
-		//	}
 	}
 }

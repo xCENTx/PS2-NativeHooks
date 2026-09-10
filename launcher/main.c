@@ -25,7 +25,7 @@ int main(void)
     init_scr();
     scr_clear();
     scr_printf("PS2 NativeHooks\nCreated by: NightFyre\n\n");
-    scr_printf("Loading %s...\n", SOCOM_ELF_PATH);
+    scr_printf("Loading %s...\n", ELF_PATH);
     scr_printf("Arguments: ");
     for (int i =0; i < argc; i++)
         scr_printf("%s ", args[i]);
@@ -40,7 +40,7 @@ int main(void)
     FlushCache(0);
     FlushCache(2);
 
-    LoadExecPS2(SOCOM_ELF_PATH, 2, args);
+    LoadExecPS2(ELF_PATH, 2, args);
 
     scr_printf("ERROR: LoadExecPS2 returned\n");
     SleepThread();

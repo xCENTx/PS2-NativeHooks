@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-#define SOCOM_ELF_PATH "cdrom0:\\SCUS_971.34;1"
+#define ELF_PATH "cdrom0:\\SCUS_971.34;1"
 
 
 // ------------------------------------------------------------

@@ -4,7 +4,7 @@
 #include "structs.h"
 
 
-#define SOCOM_ELF_PATH "cdrom0:\\SCUS_972.05;1"
+#define ELF_PATH "cdrom0:\\SCUS_972.05;1"
 
 // ------------------------------------------------------------
 // Globals
