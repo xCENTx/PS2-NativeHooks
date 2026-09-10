@@ -535,6 +535,7 @@ void DrawStringTest(C2DString* string, C2DFont* font, void* camera, s32 x, s32 y
 	C2DString_Draw(string, camera);
 }
 
+static inline __attribute__((always_inline))
 bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
 {
     if (fromEntity == 0 || toEntity == 0 || fromEntity->mTargetCount <= 0 || fromEntity->pTargetArray == 0)
