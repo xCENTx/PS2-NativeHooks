@@ -32,12 +32,7 @@ $CC \
     -o "$ELF"
 
 echo "[3/4] Extracting payload..."
-$OBJCOPY \
-    -O binary \
-    -j .text \
-    -j .rodata \
-    "$ELF" \
-    "$BINARY"
+$OBJCOPY -O binary "$ELF" "$BINARY"
 
 echo "[4/4] Generating PNACH..."
 python3 GENPnach.py \

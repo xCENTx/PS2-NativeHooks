@@ -34,6 +34,17 @@ jal_opcode = (
 )
 
 with open(OUTPUT_FILE, "w") as out:
+    
+    # 
+    out.write(
+        "[DEBUG\\ESP\\DISABLE]\n"
+        "author=NightFyre\n"
+        "description=\n"
+        "patch=1,EE,201EBF20,extended,0C0A9D24\n"
+        "[DEBUG\\ESP\\ENABLE]\n"
+        "author=NightFyre\n"
+        "description=Draws 3D Box , Bones and Line to all enemies\n"
+    )
 
     # Replace original call with JAL to our code cave.
     pnach_addr = 0x20000000 | HOOK_ADDR

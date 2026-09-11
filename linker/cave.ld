@@ -2,6 +2,11 @@ SECTIONS
 {
     . = 0x00097000;
 
+    .hook :
+    {
+        *(.hook)
+    }
+
     .text :
     {
         *(.text*)
