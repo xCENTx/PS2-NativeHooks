@@ -206,8 +206,11 @@ static const f32 circle_sin[CIRCLE_SEGMENTS + 1] =
 // Helper Methods
 // ------------------------------------------------------------
 
-static inline __attribute__((always_inline))
-Vec3 Vec3_Add(Vec3 a, Vec3 b)
+// ------------------------------------------------------------
+// Tiny math / value helpers
+// ------------------------------------------------------------
+
+static inline Vec3 Vec3_Add(Vec3 a, Vec3 b)
 {
     Vec3 out =
     {
@@ -219,8 +222,7 @@ Vec3 Vec3_Add(Vec3 a, Vec3 b)
     return out;
 }
 
-static inline __attribute__((always_inline))
-Vec3 QuaternionRotate(Vec4 q, Vec3 v)
+static inline Vec3 QuaternionRotate(Vec4 q, Vec3 v)
 {
     // q.xyz = imaginary component
     // q.w   = real component
@@ -258,26 +260,7 @@ Vec3 QuaternionRotate(Vec4 q, Vec3 v)
     return out;
 }
 
-static inline __attribute__((always_inline))
-Matrix4x4 MatrixMultiply(Matrix4x4 a, Matrix4x4 b)
-{
-    Matrix4x4 out;
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 4; j++)
-        {
-            out.m[i][j] = 0.0f;
-            for (int k = 0; k < 4; k++)
-            {
-                out.m[i][j] += a.m[i][k] * b.m[k][j];
-            }
-        }
-    }
-    return out;
-}
-
-static inline __attribute__((always_inline))
-Vec3 TransformPoint(const Matrix4x4* m, Vec3 p)
+static inline Vec3 TransformPoint(const Matrix4x4* m, Vec3 p)
 {
     Vec3 out;
 
@@ -303,8 +286,7 @@ Vec3 TransformPoint(const Matrix4x4* m, Vec3 p)
     return out;
 }
 
-static inline __attribute__((always_inline))
-Vec4 TransformPoint4(const Matrix4x4* m, Vec4 v)
+static inline Vec4 TransformPoint4(const Matrix4x4* m, Vec4 v)
 {
     Vec4 out;
     out.x =
@@ -334,8 +316,84 @@ Vec4 TransformPoint4(const Matrix4x4* m, Vec4 v)
     return out;
 }
 
-static inline __attribute__((always_inline))
-bool WorldToScreen(Vec3 world, Vec2* screen)
+static inline f32 FastAbs(f32 x)
+{
+    return x < 0.0f ? -x : x;
+}
+
+static inline f32 FastLength2D(f32 x, f32 y)
+{
+    f32 ax;
+    f32 ay;
+    f32 maxv;
+    f32 minv;
+
+    ax = FastAbs(x);
+    ay = FastAbs(y);
+
+    if (ax > ay)
+    {
+        maxv = ax;
+        minv = ay;
+    }
+    else
+    {
+        maxv = ay;
+        minv = ax;
+    }
+
+    return maxv + (minv * 0.375f);
+}
+
+static inline GSXYZ2 MakeGSVertex(f32 x, f32 y)
+{
+    GSXYZ2 v;
+
+    v.x = (s32)(x * 16.0f);
+    v.y = (s32)(y * 16.0f);
+
+    v.z = 1000000000;
+    v.w = 0;
+
+    v.x -= 0x9400;
+    v.y -= 0x8E00;
+
+    return v;
+}
+
+static inline void SetGSColor( GSRGBAQ *out, Vec4 color)
+{
+    f32 rgba[4];
+
+    rgba[0] = color.x * 255.0f;
+    rgba[1] = color.y * 255.0f;
+    rgba[2] = color.z * 255.0f;
+    rgba[3] = color.w * 128.0f;
+
+    sceVu0FTOI0Vector( (s32 *)out, rgba );
+}
+
+// ------------------------------------------------------------
+// Bigger math / camera helpers
+// ------------------------------------------------------------
+
+static Matrix4x4 MatrixMultiply(Matrix4x4 a, Matrix4x4 b)
+{
+    Matrix4x4 out;
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            out.m[i][j] = 0.0f;
+            for (int k = 0; k < 4; k++)
+            {
+                out.m[i][j] += a.m[i][k] * b.m[k][j];
+            }
+        }
+    }
+    return out;
+}
+static bool WorldToScreen(Vec3 world, Vec2* screen)
 {
 	if (!screen)
 		return false;
@@ -390,11 +448,81 @@ bool WorldToScreen(Vec3 world, Vec2* screen)
 
 
 // ------------------------------------------------------------
+// Container Helpers
+// ------------------------------------------------------------
+typedef void (*ZArrayForEach_Callback)(void* obj, void* ctx);
+typedef void* (*ZArrayFind_Callback)(void* obj, void* ctx);
+
+// iterates on each entity
+static void ZArray_ForEach(ZArray* arr, ZArrayForEach_Callback cb, void* ctx)
+{
+    ZIterator* it;
+    ZIterator* end;
+
+    if (arr == 0 || cb == 0 || arr->count == 0 || arr->begin == 0 || arr->end == 0)
+        return;
+
+    it = (ZIterator*)arr->begin;
+
+    if (it == 0)
+        return;
+
+    end = (ZIterator*)it->prev;
+
+    if (end == 0)
+        return;
+
+    do
+    {
+        if (it->data != 0)
+            cb((void*)it->data, ctx);
+
+        it = (ZIterator*)it->next;
+
+    } while (it != 0 && it->data != end->data);
+}
+
+// returns the first object in the array matching the input
+static void* ZArray_Find(ZArray* arr, ZArrayFind_Callback cb, void* ctx)
+{
+    ZIterator* it;
+    ZIterator* end;
+
+    if (arr == 0 || cb == 0 || arr->count == 0 || arr->begin == 0 || arr->end == 0)
+        return 0;
+
+    it = (ZIterator*)arr->begin;
+
+    if (it == 0)
+        return 0;
+
+    end = (ZIterator*)it->prev;
+
+    if (end == 0)
+        return 0;
+
+    do
+    {
+        if (it->data != 0)
+        {
+            void* result = cb((void*)it->data, ctx);
+
+            if (result != 0)
+                return result;
+        }
+
+        it = (ZIterator*)it->next;
+
+    } while (it != 0 && it->data != end->data);
+
+    return 0;
+}
+
+// ------------------------------------------------------------
 // Entity Helpers
 // ------------------------------------------------------------
 
-static inline __attribute__((always_inline))
-Vec3 GetBoneModelPosition(CZBodyPart* bone)
+static Vec3 GetBoneModelPosition(CZBodyPart* bone)
 {
     Vec3 position = bone->mOrigin;
 
@@ -424,8 +552,7 @@ Vec3 GetBoneModelPosition(CZBodyPart* bone)
     return position;
 }
 
-static inline __attribute__((always_inline))
-Vec3 GetBoneWorldPosition(CZSealBody* entity, CZBodyPart* bone)
+static Vec3 GetBoneWorldPosition(CZSealBody* entity, CZBodyPart* bone)
 {
     Vec3 modelPosition = GetBoneModelPosition(bone);
 
@@ -435,8 +562,7 @@ Vec3 GetBoneWorldPosition(CZSealBody* entity, CZBodyPart* bone)
     );
 }
 
-static inline __attribute__((always_inline))
-bool GetBoneWorldPosByIndex(CZSealBody* entity, FT_BONE idx, Vec3* wsOrigin)
+static bool GetBoneWorldPosByIndex(CZSealBody* entity, FT_BONE idx, Vec3* wsOrigin)
 {
     if (entity == 0 || wsOrigin == 0)
         return false;
@@ -450,8 +576,7 @@ bool GetBoneWorldPosByIndex(CZSealBody* entity, FT_BONE idx, Vec3* wsOrigin)
     return true;
 }
 
-static inline __attribute__((always_inline))
-bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
+static bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
 {
     if (fromEntity == 0 || toEntity == 0 || fromEntity->mTargetCount <= 0 || fromEntity->pTargetArray == 0)
         return false;
@@ -471,8 +596,8 @@ bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
 // Draw Primitives
 // ------------------------------------------------------------
 
-static inline __attribute__((always_inline))
-void DrawLineVec2(float x1, float y1, float x2, float y2, Vec4 color)
+// invokes Draw2DLine
+static void DrawLineCanvas(float x1, float y1, float x2, float y2, Vec4 color)
 {
 
     float start[4] =
@@ -510,17 +635,16 @@ void DrawLineVec2(float x1, float y1, float x2, float y2, Vec4 color)
     Draw2DLine(start, end, color_start, color_end);
 }
 
-static inline __attribute__((always_inline))
-void DrawBox2D( float x, float y, float width, float height, Vec4 color)
+static void DrawBox2D( float x, float y, float width, float height, Vec4 color)
 {
-    DrawLineVec2(x,         y,          x + width, y,          color);
-    DrawLineVec2(x + width, y,          x + width, y + height, color);
-    DrawLineVec2(x + width, y + height, x,         y + height, color);
-    DrawLineVec2(x,         y + height, x,         y,          color);
+    DrawLineCanvas(x,         y,          x + width, y,          color);
+    DrawLineCanvas(x + width, y,          x + width, y + height, color);
+    DrawLineCanvas(x + width, y + height, x,         y + height, color);
+    DrawLineCanvas(x,         y + height, x,         y,          color);
 }
 
-static inline __attribute__((always_inline))
-void DrawLineVec3(Vec3 a, Vec3 b, Vec3 color)
+// invokes RenderLineWorld
+static void DrawLineWorld(Vec3 a, Vec3 b, Vec3 color)
 {
     float start[4] =
     {
@@ -557,46 +681,14 @@ void DrawLineVec3(Vec3 a, Vec3 b, Vec3 color)
     RenderLineWorld(start, end, color_start, color_end);
 }
 
-static inline __attribute__((always_inline))
-void DrawStringTest(C2DString* string, C2DFont* font, void* camera, s32 x, s32 y)
+static void DrawStringTest(C2DString* string, C2DFont* font, void* camera, s32 x, s32 y)
 {
 	C2DString_Load(string, "HELLO WORLD", font, x, y);
 	C2DString_Draw(string, camera);
 }
 
-static inline __attribute__((always_inline))
-GSXYZ2 MakeGSVertex(f32 x, f32 y)
-{
-    GSXYZ2 v;
-
-    v.x = (s32)(x * 16.0f);
-    v.y = (s32)(y * 16.0f);
-
-    v.z = 1000000000;
-    v.w = 0;
-
-    v.x -= 0x9400;
-    v.y -= 0x8E00;
-
-    return v;
-}
-
-static inline __attribute__((always_inline))
-void SetGSColor( GSRGBAQ *out, Vec4 color)
-{
-    f32 rgba[4];
-
-    rgba[0] = color.x * 255.0f;
-    rgba[1] = color.y * 255.0f;
-    rgba[2] = color.z * 255.0f;
-    rgba[3] = color.w * 128.0f;
-
-    sceVu0FTOI0Vector( (s32 *)out, rgba );
-}
-
 // rewrite of Draw2DLine
-static inline __attribute__((always_inline))
-void Draw2DLineNative(f32 x1, f32 y1, f32 x2, f32 y2, Vec4 color_start, Vec4 color_end)
+static void Draw2DLineNative(f32 x1, f32 y1, f32 x2, f32 y2, Vec4 color_start, Vec4 color_end)
 {
     GSLinePacket *packet;
     u64 prim;
@@ -672,8 +764,7 @@ void Draw2DLineNative(f32 x1, f32 y1, f32 x2, f32 y2, Vec4 color_start, Vec4 col
     zSysFifoKick( packet, 6 );
 }
 
-static inline __attribute__((always_inline))
-void Draw3DLineNative(Vec4 start, Vec4 end, Vec4 color_start, Vec4 color_end)
+static void Draw3DLineNative(Vec4 start, Vec4 end, Vec4 color_start, Vec4 color_end)
 {
     GSLinePacket *packet;
     u32 pWorld;
@@ -798,8 +889,7 @@ void Draw3DLineNative(Vec4 start, Vec4 end, Vec4 color_start, Vec4 color_end)
     zSysFifoKick(packet, 6);
 }
 
-static inline __attribute__((always_inline))
-void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness, Vec4 color )
+static void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness, Vec4 color )
 {
     GSCirclePacket *packet;
     f32 inner_radius;
@@ -922,39 +1012,7 @@ void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness, Vec4 c
     zSysFifoKick( packet, total_qw );
 }
 
-static inline __attribute__((always_inline))
-f32 FastAbs(f32 x)
-{
-    return x < 0.0f ? -x : x;
-}
-
-static inline __attribute__((always_inline))
-f32 FastLength2D(f32 x, f32 y)
-{
-    f32 ax;
-    f32 ay;
-    f32 maxv;
-    f32 minv;
-
-    ax = FastAbs(x);
-    ay = FastAbs(y);
-
-    if (ax > ay)
-    {
-        maxv = ax;
-        minv = ay;
-    }
-    else
-    {
-        maxv = ay;
-        minv = ax;
-    }
-
-    return maxv + (minv * 0.375f);
-}
-
-static inline __attribute__((always_inline))
-void DrawSmooth2DLineNative( f32 x1, f32 y1, f32 x2, f32 y2, f32 width, Vec4 color_start, Vec4 color_end)
+static void DrawSmooth2DLineNative( f32 x1, f32 y1, f32 x2, f32 y2, f32 width, Vec4 color_start, Vec4 color_end)
 {
     GSLineStripPacket *packet;
     f32 dx;
@@ -1076,8 +1134,7 @@ void DrawSmooth2DLineNative( f32 x1, f32 y1, f32 x2, f32 y2, f32 width, Vec4 col
     zSysFifoKick(packet, 10);
 }
 
-static inline __attribute__((always_inline))
-void DrawFeathered2DLine( f32 x1, f32 y1, f32 x2, f32 y2, f32 width, f32 feather, Vec4 color_start, Vec4 color_end )
+static void DrawFeathered2DLine( f32 x1, f32 y1, f32 x2, f32 y2, f32 width, f32 feather, Vec4 color_start, Vec4 color_end )
 {
     GSFeatherLinePacket *packet;
 
@@ -1255,8 +1312,8 @@ void DrawFeathered2DLine( f32 x1, f32 y1, f32 x2, f32 y2, f32 width, f32 feather
 // Draw Helpers
 // ------------------------------------------------------------
 
-static inline __attribute__((always_inline))
-void DrawBoundingBox(CNode* node)
+// draws the bounds of a node in world space
+static void DebugDrawBoundingBoxWorld(CNode* node)
 {
     Vec3 min = node->m_bounds.m_min;
     Vec3 max = node->m_bounds.m_max;
@@ -1284,26 +1341,26 @@ void DrawBoundingBox(CNode* node)
     p7 = TransformPoint(&node->m_mtx, p7);
 
     // Bottom
-    DrawLineVec3(p0, p1, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p1, p2, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p2, p3, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p3, p0, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p0, p1, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p1, p2, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p2, p3, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p3, p0, (Vec3){ 1.0f, 1.0f, 1.0f });
 
     // Top
-    DrawLineVec3(p4, p5, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p5, p6, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p6, p7, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p7, p4, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p4, p5, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p5, p6, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p6, p7, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p7, p4, (Vec3){ 1.0f, 1.0f, 1.0f });
 
     // Vertical edges
-    DrawLineVec3(p0, p4, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p1, p5, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p2, p6, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineVec3(p3, p7, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p0, p4, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p1, p5, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p2, p6, (Vec3){ 1.0f, 1.0f, 1.0f });
+    DrawLineWorld(p3, p7, (Vec3){ 1.0f, 1.0f, 1.0f });
 }
 
-static inline __attribute__((always_inline))
-void DebugDrawSkeleton(CZSealBody* entity)
+// connects all skeleton points on a czseal and draws in both world and canvas spaces
+static void DebugDrawSkeleton(CZSealBody* entity)
 {
     if (entity == 0 || entity->pNode == 0)
         return;
@@ -1329,10 +1386,10 @@ void DebugDrawSkeleton(CZSealBody* entity)
 		// Project the 3D positions to 2D screen space and draw the line
 		Vec2 screen, screen_2;
 		if (WorldToScreen(bonePosition, &screen) && WorldToScreen(parentPosition, &screen_2))
-			DrawLineVec2(screen.x, screen.y, screen_2.x, screen_2.y, (Vec4){ 1.0f, 1.0f, 1.0f, 1.0f });
+			DrawLineCanvas(screen.x, screen.y, screen_2.x, screen_2.y, (Vec4){ 1.0f, 1.0f, 1.0f, 1.0f });
 
 		// Draw the 3D line as well
-        DrawLineVec3(
+        DrawLineWorld(
             bonePosition,
             parentPosition,
             (Vec3){ 1.0f, 1.0f, 1.0f }
@@ -1340,8 +1397,8 @@ void DebugDrawSkeleton(CZSealBody* entity)
     }
 }
 
-static inline __attribute__((always_inline))
-void DrawSkeleton(CZSealBody* entity)
+// draws a player skeleton using custom bone indexing
+static void DrawSkeleton(CZSealBody* entity)
 {
     if (entity == 0 || entity->pNode == 0)
         return;
@@ -1399,83 +1456,131 @@ void DrawSkeleton(CZSealBody* entity)
     }
 }
 
+
+// ------------------------------------------------------------
+// Feature Callbacks
+// ------------------------------------------------------------
+typedef struct
+{
+    CZSealBody* seal;
+    CZSealBody* target;
+    f32 bestTargetDistSq;
+} ctxPlayerESP;
+static void ProcessPlayerESP(void* obj, void* ctx)
+{
+    CZSealBody* entity;
+    ctxPlayerESP* esp;
+    CNode* pNode;
+    bool isSealTeam;
+    f32 dx;
+    f32 dy;
+    f32 aimDistSq;
+
+    entity = (CZSealBody*)obj;
+    esp = (ctxPlayerESP*)ctx;
+
+    if (entity == 0 || esp == 0 || esp->seal == 0)
+        return;
+
+    if (entity == esp->seal)
+        return;
+
+    pNode = (CNode*)entity->pNode;
+
+    if (pNode == 0 || CNode_Rendered(pNode) == 0)
+        return;
+
+    isSealTeam = entity->mTeamID == 0x84000006 || entity->mTeamID == 0x8400000A;
+
+    if (isSealTeam || entity->mTeamID == esp->seal->mTeamID || entity->mHealth <= 0.0f)
+        return;
+    
+    //  DebugDrawBoundingBoxWorld(pNode);
+    DrawSkeleton(entity);
+
+    Vec2 screen;
+    Vec3 wsBoneHead;
+    if (IsVisible(esp->seal, entity) == false || GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) == false || WorldToScreen(wsBoneHead, &screen) == false)
+        return;
+
+    dx = screen.x - 320.0f;
+    dy = screen.y - 224.0f;
+    aimDistSq = dx * dx + dy * dy;
+    if (aimDistSq >= AIM_FOV_SQ || aimDistSq >= esp->bestTargetDistSq)
+        return;
+    
+    esp->bestTargetDistSq = aimDistSq;
+    esp->target = entity;
+}
+
+typedef struct
+{
+    CZSealBody* seal;
+    CPickup* target;
+    f32 bestTargetDistSq;
+} ctxPickupESP;
+static void ProcessPickupESP(void* obj, void* ctx)
+{
+    CPickup* pickup;
+    ctxPickupESP* esp;
+    CNode* pNode;
+    f32 dx;
+    f32 dy;
+    f32 aimDistSq;
+    
+    pickup = (CPickup*)obj;
+    esp = (ctxPickupESP*)ctx;
+
+    if (pickup == 0 || esp == 0)
+        return;
+    
+    pNode = (CNode*)pickup->pNode;
+    if (pNode == 0)
+        return;
+    
+    DebugDrawBoundingBoxWorld(pNode);
+
+    Vec2 screen;
+    if (WorldToScreen((Vec3){ pNode->m_mtx.m[3][0], pNode->m_mtx.m[3][1], pNode->m_mtx.m[3][2] }, &screen) == false)
+        return;
+
+    dx = screen.x - 320.0f;
+    dy = screen.y - 224.0f; 
+    aimDistSq = dx * dx + dy * dy;  
+    if (aimDistSq >= AIM_FOV_SQ || aimDistSq >= esp->bestTargetDistSq)
+        return;
+
+    esp->bestTargetDistSq = aimDistSq;
+    esp->target = pickup;
+}
+
 // ------------------------------------------------------------
 // Native Hook
 // ------------------------------------------------------------
 // CCameraApp::Tick -> CZSealBody::CheckDIShoot
-__attribute__((noinline))
+__attribute__((section(".hook"), noinline))
 void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 {
 	// execute the original method 
     CheckDIShoot(seal, a2, a3);
 
-    CZSealBody* pTargetSeal = 0;
-    f32 bestTargetDistSq = 99999999.0f;
-	
-    // esp
-	{
-		ZArray* sealArray = (ZArray*)gSealArray;
-		if (seal == 0 || sealArray == 0 || 
-    	    sealArray->count == 0 || 
-    	    sealArray->begin == 0 || 
-    	    sealArray->end == 0)
-    	        return;
-		
-    	ZIterator* it = (ZIterator*)sealArray->begin;
-    	if (it == 0)
-    	    return;
+    if (seal == 0)
+        return;
+    
+    // ESP
+    ctxPlayerESP ctxPlayers;
+    ctxPickupESP ctxPickups;
+    {
+        ctxPlayers.seal = seal;
+        ctxPlayers.target = 0;
+        ctxPlayers.bestTargetDistSq = 99999999.0f;
+        ZArray_ForEach((ZArray*)gSealArray, ProcessPlayerESP, &ctxPlayers);
 
-    	ZIterator* end = (ZIterator*)it->prev;
-    	if (end == 0)
-    	    return;
-
-    	do
-    	{
-    	    // skip if entity is null or entity is the same as seal
-    	    CZSealBody* entity = (CZSealBody*)it->data;
-    	    if (entity == 0 || entity == seal)
-    	    {
-    	        it = (ZIterator*)it->next;
-    	        continue;
-    	    }
-
-    	    // check if entity is rendered
-    	    CNode* pNode = (CNode*)entity->pNode;
-    	    if (pNode == 0 || CNode_Rendered(pNode) == 0) // CNode_Rendered sometimes fails and causes unrendered entities to show up which looks like flickering
-    	    {
-    	        it = (ZIterator*)it->next;
-    	        continue;
-    	    }
-
-    	    //  skip if entity is same team as seal or is dead 
-    	    bool isSealTeam = (entity->mTeamID == 0x84000006 || entity->mTeamID == 0x8400000A);
-    	    if (isSealTeam || entity->mTeamID == seal->mTeamID || entity->mHealth <= 0.0f)
-    	    {
-    	        it = (ZIterator*)it->next;
-    	        continue;
-    	    }
-
-    	    //  DrawBoundingBox(pNode);
-    	    DrawSkeleton(entity);
-
-            Vec2 screen;
-            Vec3 wsBoneHead;
-            if (IsVisible(seal, entity) && GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) && WorldToScreen(wsBoneHead, &screen))
-            {    
-                f32 dx = screen.x - 320.0f;
-                f32 dy = screen.y - 224.0f;
-                f32 aimDistSq = dx * dx + dy * dy;
-                if (aimDistSq < AIM_FOV_SQ && aimDistSq < bestTargetDistSq)
-                {
-                    bestTargetDistSq = aimDistSq;
-                    pTargetSeal = entity;
-                }
-            }
-
-    	    it = (ZIterator*)it->next;
-    	}
-    	while (it && it->data != end->data);
-	}
+        ctxPickups.seal = seal;
+        ctxPickups.target = 0;
+        ctxPickups.bestTargetDistSq = 99999999.0f;
+        ZArray_ForEach((ZArray*)gPickupArray, ProcessPickupESP, &ctxPickups);
+    }
 
     // infinite ammo
     {
@@ -1523,10 +1628,11 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 
     // aimbot
+    if (ctxPlayers.target != 0)
     {   
         Vec2 screen[2];
         Vec3 targetOrigin[2];
-        if (pTargetSeal && GetBoneWorldPosByIndex(pTargetSeal, FT_BONE_head, &targetOrigin[0]) && WorldToScreen(targetOrigin[0], &screen[0])
+        if (ctxPlayers.target && GetBoneWorldPosByIndex(ctxPlayers.target, FT_BONE_head, &targetOrigin[0]) && WorldToScreen(targetOrigin[0], &screen[0])
             && GetBoneWorldPosByIndex(seal, FT_BONE_rhand, &targetOrigin[1]) && WorldToScreen(targetOrigin[1], &screen[1]))
         {
             seal->mReticlePt = targetOrigin[0];    
@@ -1547,11 +1653,10 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 
             // Draw 
             // DrawFeathered2DLine( screen[0].x, screen[0].y, screen[1].x, screen[1].y, 0.5f, 0.75f, (Vec4){1.0f, 1.0f, 1.0f, 0.5f}, (Vec4){1.0f, 0.0f, 0.0f, 0.5f} );
+            
         }
     }
 
-    //
-    {
-        Draw2DCircle(320.f, 224.f, AIM_FOV, 1.0f, (Vec4){1.0f, 1.0f, 1.0f, 1.0f });
-    }
+    // draw aim fov
+    Draw2DCircle(320.f, 224.f, AIM_FOV, 1.0f, (Vec4){1.0f, 1.0f, 1.0f, 1.0f });
 }

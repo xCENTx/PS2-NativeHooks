@@ -13,6 +13,7 @@
 #define gWorld 0x48D848
 #define gCamera 0x51E778
 #define gSealArray 0x4D46A0
+#define gPickupArray 0x51E970
 #define gAppCamera 0x48D488
 #define tickAnimFireWeapon 0x1B7C90
 #define g_GS_Z_OFFSET 0x0048CF50
