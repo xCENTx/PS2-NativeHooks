@@ -43,8 +43,8 @@ typedef void(*Draw2DLine_t)(float* start, float* end, float* color, float* color
 typedef void(*Draw3DLine_t)(float* start, float* end, float* color, float* color_2); // draws a line in world space
 #define Draw3DLine ((Draw3DLine_t)0x317220)
 
-typedef bool(*clip3DLine_t)(s64 a1, s64 a2, s64 a3); // 316C90
-#define Clip3DLine((clip3DLine_t)0x316C90)
+typedef bool(*clip3DLine_t)(s64 a1, s64 a2, s64 a3); 
+#define Clip3DLine ((clip3DLine_t)0x316C90)
 
 typedef s64(*GetCharacterHit_t)(CZSealBody* a1, float* a2, s64 a3); // CZSealBody* seal , Vec3* outOrigin, ???
 #define GetCharacterHit ((GetCharacterHit_t)0x2A8200)

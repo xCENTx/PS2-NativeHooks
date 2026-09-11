@@ -56,6 +56,13 @@ static const s32 BoneChains[][6] =
 };
 #define BONE_CHAIN_COUNT (sizeof(BoneChains) / sizeof(BoneChains[0]))
 
+static const s32 BoundingBoxEdges[12][2] =
+{
+    {0,1}, {1,2}, {2,3}, {3,0},
+    {4,5}, {5,6}, {6,7}, {7,4},
+    {0,4}, {1,5}, {2,6}, {3,7}
+};
+
 // Each step is 5.625degrees:
 // - every entry for 64 vertices
 // - every 2nd for 32 vertices
@@ -373,6 +380,25 @@ static inline void SetGSColor( GSRGBAQ *out, Vec4 color)
     sceVu0FTOI0Vector( (s32 *)out, rgba );
 }
 
+static void MakeBoundingBox(CNode* node, Vec3 world[8])
+{
+    Vec3 min = node->m_bounds.m_min;
+    Vec3 max = node->m_bounds.m_max;
+
+    world[0] = (Vec3){ min.x, min.y, min.z };
+    world[1] = (Vec3){ max.x, min.y, min.z };
+    world[2] = (Vec3){ max.x, max.y, min.z };
+    world[3] = (Vec3){ min.x, max.y, min.z };
+
+    world[4] = (Vec3){ min.x, min.y, max.z };
+    world[5] = (Vec3){ max.x, min.y, max.z };
+    world[6] = (Vec3){ max.x, max.y, max.z };
+    world[7] = (Vec3){ min.x, max.y, max.z };
+
+    for (int i = 0; i < 8; i++)
+        world[i] = TransformPoint(&node->m_mtx, world[i]);
+}
+
 // ------------------------------------------------------------
 // Bigger math / camera helpers
 // ------------------------------------------------------------
@@ -598,9 +624,8 @@ static bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
 // ------------------------------------------------------------
 
 // invokes Draw2DLine
-static void DrawLineCanvas(float x1, float y1, float x2, float y2, Vec4 color)
+static void spDrawLineGradient(float x1, float y1, float x2, float y2, Vec4 color_start, Vec4 color_end)
 {
-
     float start[4] =
     {
         x1,
@@ -617,35 +642,37 @@ static void DrawLineCanvas(float x1, float y1, float x2, float y2, Vec4 color)
         1.0f
     };
     
-    float color_start[4] =
+    float colorA[4] =
     {
-        color.x,
-        color.y,
-        color.z,
-        color.w
+        color_start.x,
+        color_start.y,
+        color_start.z,
+        color_start.w
     };
 
-    float color_end[4] =
+    float colorB[4] =
     {
-        color.x,
-        color.y,
-        color.z,
-        color.w
+        color_end.x,
+        color_end.y,
+        color_end.z,
+        color_end.w
     };
 
-    Draw2DLine(start, end, color_start, color_end);
+    Draw2DLine(start, end, colorA, colorB);
 }
 
-static void DrawBox2D( float x, float y, float width, float height, Vec4 color)
+static void spDrawLine(float x1, float y1, float x2, float y2, Vec4 color)
 {
-    DrawLineCanvas(x,         y,          x + width, y,          color);
-    DrawLineCanvas(x + width, y,          x + width, y + height, color);
-    DrawLineCanvas(x + width, y + height, x,         y + height, color);
-    DrawLineCanvas(x,         y + height, x,         y,          color);
+    spDrawLineGradient(x1, y1, x2, y2, color, color);
+}
+
+static void spDrawLineRGB(float x1, float y1, float x2, float y2, Vec3 color)
+{
+    spDrawLine(x1, y1, x2, y2, (Vec4){ color.x, color.y, color.z, 1.0f });
 }
 
 // invokes RenderLineWorld : if (clip3DLine == true) Draw3DLine
-static void DrawLineWorld(Vec3 a, Vec3 b, Vec3 color)
+static void wsDrawLineGradient(Vec3 a, Vec3 b, Vec4 colorA, Vec4 colorB)
 {
     float start[4] =
     {
@@ -665,21 +692,31 @@ static void DrawLineWorld(Vec3 a, Vec3 b, Vec3 color)
     
     float color_start[4] =
     {
-        color.x,
-        color.y,
-        color.z,
-        1.0f
+        colorA.x,
+        colorA.y,
+        colorA.z,
+        colorA.w
     };
 
     float color_end[4] =
     {
-        color.x,
-        color.y,
-        color.z,
-        1.0f
+        colorB.x,
+        colorB.y,
+        colorB.z,
+        colorB.w
     };
 
     RenderLineWorld(start, end, color_start, color_end);
+}
+
+static void wsDrawLine(Vec3 start, Vec3 end, Vec4 color)
+{
+    wsDrawLineGradient(start, end, color, color);
+}
+
+static void wsDrawLineRGB(Vec3 start, Vec3 end, Vec3 color)
+{
+    wsDrawLine(start, end, (Vec4){ color.x, color.y, color.z, 1.0f} );
 }
 
 static void DrawStringTest(C2DString* string, C2DFont* font, void* camera, s32 x, s32 y)
@@ -688,7 +725,7 @@ static void DrawStringTest(C2DString* string, C2DFont* font, void* camera, s32 x
 	C2DString_Draw(string, camera);
 }
 
-// rewrite of Draw2DLine
+// rewrite of Draw2DLine with AA
 static void Draw2DLineNative(f32 x1, f32 y1, f32 x2, f32 y2, Vec4 color_start, Vec4 color_end)
 {
     GSLinePacket *packet;
@@ -765,7 +802,7 @@ static void Draw2DLineNative(f32 x1, f32 y1, f32 x2, f32 y2, Vec4 color_start, V
     zSysFifoKick( packet, 6 );
 }
 
-// rewrite of Draw3DLine
+// rewrite of Draw3DLine with AA
 static void Draw3DLineNative(Vec4 start, Vec4 end, Vec4 color_start, Vec4 color_end)
 {
     GSLinePacket *packet;
@@ -891,6 +928,25 @@ static void Draw3DLineNative(Vec4 start, Vec4 end, Vec4 color_start, Vec4 color_
     zSysFifoKick(packet, 6);
 }
 
+static void RenderLineWorldNative(Vec4 start, Vec4 end, Vec4 color_start, Vec4 color_end)
+{
+    u32 pWorld;
+    u32 pCamera;
+
+	pWorld = *(u32*)gWorld;
+    if (!pWorld)
+        return;
+
+	pCamera = *(u32*)(pWorld + 0xC0);
+	if (!pCamera)
+		return;
+
+    //  if (clipLine3D((s64)(pCamera + 0x3D0), &start, &end))
+    //      return;
+
+    Draw3DLineNative(start, end, color_start, color_end);
+}
+
 // custom draw circle method
 static void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness, Vec4 color )
 {
@@ -1013,7 +1069,6 @@ static void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness,
 
     zSysFifoKick( packet, total_qw );
 }
-
 
 // ------------------------------------------------------------
 // Draw Primitives - Smoothing
@@ -1319,93 +1374,62 @@ static void DrawFeathered2DLine( f32 x1, f32 y1, f32 x2, f32 y2, f32 width, f32 
 // Draw Helpers
 // ------------------------------------------------------------
 
-// draws the bounds of a node in world space
-static void DebugDrawBoundingBoxWorld(CNode* node)
+// draws a bounding box around the input object in world space
+static void wsDrawBoundingBox(CNode* node, Vec3 color)
 {
-    Vec3 min = node->m_bounds.m_min;
-    Vec3 max = node->m_bounds.m_max;
+    Vec3 world[8];
 
-    // Local-space AABB corners
-    Vec3 p0 = { min.x, min.y, min.z };
-    Vec3 p1 = { max.x, min.y, min.z };
-    Vec3 p2 = { max.x, max.y, min.z };
-    Vec3 p3 = { min.x, max.y, min.z };
-
-    Vec3 p4 = { min.x, min.y, max.z };
-    Vec3 p5 = { max.x, min.y, max.z };
-    Vec3 p6 = { max.x, max.y, max.z };
-    Vec3 p7 = { min.x, max.y, max.z };
-
-    // Transform into world space
-    p0 = TransformPoint(&node->m_mtx, p0);
-    p1 = TransformPoint(&node->m_mtx, p1);
-    p2 = TransformPoint(&node->m_mtx, p2);
-    p3 = TransformPoint(&node->m_mtx, p3);
-
-    p4 = TransformPoint(&node->m_mtx, p4);
-    p5 = TransformPoint(&node->m_mtx, p5);
-    p6 = TransformPoint(&node->m_mtx, p6);
-    p7 = TransformPoint(&node->m_mtx, p7);
-
-    // Bottom
-    DrawLineWorld(p0, p1, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p1, p2, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p2, p3, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p3, p0, (Vec3){ 1.0f, 1.0f, 1.0f });
-
-    // Top
-    DrawLineWorld(p4, p5, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p5, p6, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p6, p7, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p7, p4, (Vec3){ 1.0f, 1.0f, 1.0f });
-
-    // Vertical edges
-    DrawLineWorld(p0, p4, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p1, p5, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p2, p6, (Vec3){ 1.0f, 1.0f, 1.0f });
-    DrawLineWorld(p3, p7, (Vec3){ 1.0f, 1.0f, 1.0f });
-}
-
-// connects all skeleton points on a czseal and draws in both world and canvas spaces
-static void DebugDrawSkeleton(CZSealBody* entity)
-{
-    if (entity == 0 || entity->pNode == 0)
+    if (node == 0)
         return;
 
-    for (int i = 0; i < 33; i++)
+    MakeBoundingBox(node, world);    
+
+    for (int i = 0; i < 12; i++)
     {
-        CZBodyPart* bone = entity->mSkeleton[i];
+        int a = BoundingBoxEdges[i][0];
+        int b = BoundingBoxEdges[i][1];
 
-        if (bone == 0)
-            continue;
-
-        CZBodyPart* parent = bone->pParentBone;
-
-        if (parent == 0)
-            continue;
-
-        Vec3 bonePosition =
-            GetBoneWorldPosition(entity, bone);
-
-        Vec3 parentPosition =
-            GetBoneWorldPosition(entity, parent);
-
-		// Project the 3D positions to 2D screen space and draw the line
-		Vec2 screen, screen_2;
-		if (WorldToScreen(bonePosition, &screen) && WorldToScreen(parentPosition, &screen_2))
-			DrawLineCanvas(screen.x, screen.y, screen_2.x, screen_2.y, (Vec4){ 1.0f, 1.0f, 1.0f, 1.0f });
-
-		// Draw the 3D line as well
-        DrawLineWorld(
-            bonePosition,
-            parentPosition,
-            (Vec3){ 1.0f, 1.0f, 1.0f }
-        );
+        wsDrawLineRGB(world[a], world[b], color);
     }
 }
 
-// draws a player skeleton using custom bone indexing
-static void DrawSkeleton(CZSealBody* entity)
+// draws a bounding box around the input object in screen space
+static void spDrawBoundingBox(CNode* node, Vec3 color)
+{
+    Vec3 world[8];
+    Vec2 screen[8];
+    bool visible[8];
+
+    Vec4 drawColor =
+    {
+        color.x,
+        color.y,
+        color.z,
+        1.0f
+    };
+
+    if (node == 0)
+        return;
+
+    MakeBoundingBox(node, world);    
+
+    // project each corner independently
+    for (int i = 0; i < 8; i++)
+        visible[i] = WorldToScreen( world[i], &screen[i] );
+
+    // draw
+    for (int i = 0; i < 12; i++)
+    {
+        int a = BoundingBoxEdges[i][0];
+        int b = BoundingBoxEdges[i][1];
+        
+        if (visible[a] && visible[b])
+            DrawSmooth2DLineNative(screen[a].x, screen[a].y, screen[b].x, screen[b].y, 0.5f, drawColor, drawColor);
+    }
+}
+
+// connects all skeleton points on a czseal and draws in both world and canvas spaces
+static void wsDrawSkeleton(CZSealBody* entity)
 {
     if (entity == 0 || entity->pNode == 0)
         return;
@@ -1431,8 +1455,7 @@ static void DrawSkeleton(CZSealBody* entity)
                 continue;
             }
 
-            Vec3 currentPosition =
-                GetBoneWorldPosition(entity, bone);
+            Vec3 currentPosition = GetBoneWorldPosition(entity, bone);
 
             if (!havePrevious)
             {
@@ -1441,24 +1464,63 @@ static void DrawSkeleton(CZSealBody* entity)
                 continue;
             }
 
-            Vec2 currentScreen;
-            Vec2 previousScreen;
 
-            if (WorldToScreen(currentPosition, &currentScreen) &&
-                WorldToScreen(previousPosition, &previousScreen))
+		    // Draw the 3D line as well
+            wsDrawLineRGB( previousPosition, currentPosition, (Vec3){ 1.0f, 1.0f, 1.0f } );
+            
+
+            previousPosition = currentPosition;
+        }
+    }
+}
+
+// draws a player skeleton using custom bone indexing - renders in screen space
+static void spDrawSkeleton(CZSealBody* entity)
+{
+    Vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    if (entity == 0 || entity->pNode == 0)
+        return;
+
+    for (int limb = 0; limb < BONE_CHAIN_COUNT; limb++)
+    {
+        Vec2 previousScreen;
+        bool previousVisible = false;
+        bool havePrevious = false;
+
+        for (int i = 0; i < 6; i++)
+        {
+            int boneIndex = BoneChains[limb][i];
+
+            if (boneIndex == BONE_INVALID)
+                break;
+
+            CZBodyPart* bone = entity->mSkeleton[boneIndex];
+
+            if (bone == 0)
+            {
+                havePrevious = false;
+                continue;
+            }
+
+            Vec3 world = GetBoneWorldPosition(entity, bone);
+            Vec2 screen;
+            bool visible = WorldToScreen(world, &screen);
+            if (havePrevious && previousVisible && visible)
             {
                 DrawSmooth2DLineNative(
                     previousScreen.x,
                     previousScreen.y,
-                    currentScreen.x,
-                    currentScreen.y,
+                    screen.x,
+                    screen.y,
                     0.5f,
-                    (Vec4){ 1.0f, 1.0f, 1.0f, 1.0f },
-                    (Vec4){ 1.0f, 1.0f, 1.0f, 1.0f }
+                    color,
+                    color
                 );
             }
-
-            previousPosition = currentPosition;
+            previousScreen = screen;
+            previousVisible = visible;
+            havePrevious = true;
         }
     }
 }
@@ -1502,8 +1564,8 @@ static void ProcessPlayerESP(void* obj, void* ctx)
     if (isSealTeam || entity->mTeamID == esp->seal->mTeamID || entity->mHealth <= 0.0f)
         return;
     
-    //  DebugDrawBoundingBoxWorld(pNode);
-    DrawSkeleton(entity);
+    //  wsDrawBoundingBox(pNode);
+    spDrawSkeleton(entity);
 
     Vec2 screen;
     Vec3 wsBoneHead;
@@ -1545,7 +1607,7 @@ static void ProcessPickupESP(void* obj, void* ctx)
     if (pNode == 0)
         return;
     
-    DebugDrawBoundingBoxWorld(pNode);
+    wsDrawBoundingBox(pNode, (Vec3){ 0.5f, 0.5f, 0.0f });
 
     Vec2 screen;
     if (WorldToScreen((Vec3){ pNode->m_mtx.m[3][0], pNode->m_mtx.m[3][1], pNode->m_mtx.m[3][2] }, &screen) == false)
@@ -1631,7 +1693,21 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
         kit->mRecoilPunch = (Vec2){ 0.0f, 0.0f };
         kit->mPrevRecoilPunch = (Vec2){ 0.0f, 0.0f };
         kit->mRifleKick = (Vec3){ 0.0f, 0.0f, 0.0f };
-        //  kit->mScreenOffset = {0.0f, 0.0f};
+    }
+
+    // no reload time / rechamber
+    {
+        CZKit* kit = &seal->mKit;
+        for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
+        {
+            CZWeapon* pWeapon = kit->pWeapons[i];
+            if (!pWeapon)
+                continue;
+
+            pWeapon->bReloadAfterShot = false;
+            pWeapon->mReloadTime = 0.0f;
+
+        }
     }
 
     // aimbot

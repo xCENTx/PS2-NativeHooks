@@ -140,6 +140,57 @@ enum
 	FT_BONE_MAX = FT_BONE_leyelid
 };
 
+typedef s8 WP_ENCUMBRANCE;
+enum
+{
+	ENCUMBRANCE_LIGHT,
+	ENCUMBRANCE_MEDIUM,
+	ENCUMBRANCE_HEAVY,
+	ENCUMBRANCE_VERY_HEAVY,
+	ENCUMBRANCE_NOT_ENCUMBERED,
+	ENCUMBRANCE_NUM_ECUMBTYPES
+};
+
+typedef s32 WP_FIREMODE;
+enum
+{
+	FIREMODE_SAFETY,
+	FIREMODE_SINGLE,
+	FIREMODE_BURST,
+	FIREMODE_AUTOFIRE,
+	FIREMODE_SPECIAL_MODE,
+	FIREMODE_NUM_FIREMODES
+};
+
+typedef s8 WP_PROJECTILE_TYPE;
+enum
+{
+	PROJECTILE_TYPE_NORMAL,
+	PROJECTILE_TYPE_ONE_FRAME,
+	PROJECTILE_TYPE_ONE_FRAME_SHOTGUN
+};
+
+typedef s8 WP_PROJECTILE_STATE;
+enum
+{
+	PROJECTILE_STATE_EXPIRED,
+	PROJECTILE_STATE_FLYOUT,
+	PROJECTILE_STATE_AT_REST,
+	PROJECTILE_STATE_TO_BE_DETONATED,
+	PROJECTILE_STATE_DETONATION_TO_BE_HANDLED,
+	PROJECTILE_STATE_WAS_DETONATED,
+	PROJECTILE_STATE_TO_BE_REMOVED
+};
+
+typedef s8 WP_GRENADE_STATE;
+enum
+{
+	GRENADE_STATE_CREATE,
+	GRENADE_STATE_NEWPOS,
+	GRENADE_STATE_DETONATE,
+	GRENADE_STATE_REMOVE
+};
+
 // ------------------------------------------------------------
 // Math
 // ------------------------------------------------------------
@@ -657,21 +708,6 @@ typedef struct
 } CZAmmo; //Size: 0x0040
 static_assert(sizeof(CZAmmo) == 0x40, "Size of CZAmmo is not correct.");
 
-typedef struct __attribute__((packed))
-{
-	f32 mLifetime; //0x0000
-	CNode* pNode; //0x0004
-	CZAmmo* pData; //0x0008
-	char mType; //0x000C
-	bool bLocked; //0x000D
-	bool bSecondary; //0x000E
-	char mUnused; //0x000F
-	s16 mID; //0x0010
-	s16 mNetID; //0x0012
-	bool bVisibleByUnits; //0x0014
-} CPickup; //Size: 0x0015
-static_assert(sizeof(CPickup) == 0x15, "Size of CPickup is not correct.");
-
 typedef struct 
 {
 	char pad_0000[4]; //0x0000
@@ -682,7 +718,7 @@ typedef struct
 	char* pGearName; //0x0014
 	char* pModelName; //0x0018
 	char* pBulletImpactName; //0x001C
-	s32 maxFireMode; //0x0020
+	WP_FIREMODE maxFireMode; //0x0020
 	s32 szMags; //0x0024
 	s32 defaultMags; //0x0028
 	f32 mSoundRadius; //0x002C
@@ -717,6 +753,21 @@ typedef struct
 	bool bHasFireMode[4]; //0x00A8
 } CZWeapon; //Size: 0x00AC
 static_assert(sizeof(CZWeapon) == 0xAC, "Size of CZWeapon is not correct.");
+
+typedef struct __attribute__((packed))
+{
+	f32 mLifetime; //0x0000
+	CNode* pNode; //0x0004
+	CZAmmo* pData; //0x0008
+	char mType; //0x000C
+	bool bLocked; //0x000D
+	bool bSecondary; //0x000E
+	char mUnused; //0x000F
+	s16 mID; //0x0010
+	s16 mNetID; //0x0012
+	bool bVisibleByUnits; //0x0014
+} CPickup; //Size: 0x0015
+static_assert(sizeof(CPickup) == 0x15, "Size of CPickup is not correct.");
 
 // ------------------------------------------------------------
 // Seal
