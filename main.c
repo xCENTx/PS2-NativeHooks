@@ -393,6 +393,7 @@ static Matrix4x4 MatrixMultiply(Matrix4x4 a, Matrix4x4 b)
     }
     return out;
 }
+
 static bool WorldToScreen(Vec3 world, Vec2* screen)
 {
 	if (!screen)
@@ -643,7 +644,7 @@ static void DrawBox2D( float x, float y, float width, float height, Vec4 color)
     DrawLineCanvas(x,         y + height, x,         y,          color);
 }
 
-// invokes RenderLineWorld
+// invokes RenderLineWorld : if (clip3DLine == true) Draw3DLine
 static void DrawLineWorld(Vec3 a, Vec3 b, Vec3 color)
 {
     float start[4] =
@@ -764,6 +765,7 @@ static void Draw2DLineNative(f32 x1, f32 y1, f32 x2, f32 y2, Vec4 color_start, V
     zSysFifoKick( packet, 6 );
 }
 
+// rewrite of Draw3DLine
 static void Draw3DLineNative(Vec4 start, Vec4 end, Vec4 color_start, Vec4 color_end)
 {
     GSLinePacket *packet;
@@ -889,6 +891,7 @@ static void Draw3DLineNative(Vec4 start, Vec4 end, Vec4 color_start, Vec4 color_
     zSysFifoKick(packet, 6);
 }
 
+// custom draw circle method
 static void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness, Vec4 color )
 {
     GSCirclePacket *packet;
@@ -973,8 +976,7 @@ static void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness,
          */
         SetGSColor( &packet->vertices[v].rgba, color );
 
-        packet->vertices[v].xyz =
-            MakeGSVertex( outer_x, outer_y );
+        packet->vertices[v].xyz = MakeGSVertex( outer_x, outer_y );
 
         v++;
 
@@ -1011,6 +1013,11 @@ static void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness,
 
     zSysFifoKick( packet, total_qw );
 }
+
+
+// ------------------------------------------------------------
+// Draw Primitives - Smoothing
+// ------------------------------------------------------------
 
 static void DrawSmooth2DLineNative( f32 x1, f32 y1, f32 x2, f32 y2, f32 width, Vec4 color_start, Vec4 color_end)
 {

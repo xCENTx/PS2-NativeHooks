@@ -21,8 +21,6 @@
 // ------------------------------------------------------------
 // Native functions
 // ------------------------------------------------------------
-typedef void(*sceVu0CopyMatrix_t)(s64 out, s64 in); // copies a matrix from 'in' to 'out'
-#define sceVu0CopyMatrix ((sceVu0CopyMatrix_t)0x1518A8)
 
 typedef void(*C2DString_Load_t)(C2DString* self, const char* text, C2DFont* font, int x, int y); // loads the string with the specified font and position
 #define C2DString_Load ((C2DString_Load_t)0x319340)
@@ -45,6 +43,9 @@ typedef void(*Draw2DLine_t)(float* start, float* end, float* color, float* color
 typedef void(*Draw3DLine_t)(float* start, float* end, float* color, float* color_2); // draws a line in world space
 #define Draw3DLine ((Draw3DLine_t)0x317220)
 
+typedef bool(*clip3DLine_t)(s64 a1, s64 a2, s64 a3); // 316C90
+#define Clip3DLine((clip3DLine_t)0x316C90)
+
 typedef s64(*GetCharacterHit_t)(CZSealBody* a1, float* a2, s64 a3); // CZSealBody* seal , Vec3* outOrigin, ???
 #define GetCharacterHit ((GetCharacterHit_t)0x2A8200)
 
@@ -62,6 +63,9 @@ typedef void(*ftsSetPlayer_t)(CZSealBody* pPlayer); // sets the local player
 
 typedef u64(*zSysSprGetPacket__FPP1_t)(s32 a1);
 #define zSysSprGetPacket_FPP1 ((zSysSprGetPacket__FPP1_t)0x30D1E0)
+
+typedef void(*sceVu0CopyMatrix_t)(s64 out, s64 in); // copies a matrix from 'in' to 'out'
+#define sceVu0CopyMatrix ((sceVu0CopyMatrix_t)0x1518A8)
 
 typedef void(*sceVu0FTOI0Vector_t)(s32* a1, f32* a2);
 #define sceVu0FTOI0Vector ((sceVu0FTOI0Vector_t)0x1518E0)
