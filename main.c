@@ -1530,6 +1530,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
             && GetBoneWorldPosByIndex(seal, FT_BONE_rhand, &targetOrigin[1]) && WorldToScreen(targetOrigin[1], &screen[1]))
         {
             seal->mReticlePt = targetOrigin[0];    
+            seal->mAimPoint = targetOrigin[0];    
             //  float start[4] = {320.f, 224.f, 0.f, 1.f};
             //  float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
             //  float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
