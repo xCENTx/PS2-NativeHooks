@@ -56,45 +56,146 @@ static const s32 BoneChains[][6] =
 };
 #define BONE_CHAIN_COUNT (sizeof(BoneChains) / sizeof(BoneChains[0]))
 
+// Each step is 5.625degrees:
+// - every entry for 64 vertices
+// - every 2nd for 32 vertices
+// - every 4th for 16 vertices
+// - every 8th for 8 vertices
 static const f32 circle_cos[CIRCLE_SEGMENTS + 1] =
 {
      1.000000f,
+     0.995185f,
+     0.980785f,
+     0.956940f,
      0.923880f,
+     0.881921f,
+     0.831470f,
+     0.773010f,
      0.707107f,
+     0.634393f,
+     0.555570f,
+     0.471397f,
      0.382683f,
+     0.290285f,
+     0.195090f,
+     0.098017f,
      0.000000f,
+    -0.098017f,
+    -0.195090f,
+    -0.290285f,
     -0.382683f,
+    -0.471397f,
+    -0.555570f,
+    -0.634393f,
     -0.707107f,
+    -0.773010f,
+    -0.831470f,
+    -0.881921f,
     -0.923880f,
+    -0.956940f,
+    -0.980785f,
+    -0.995185f,
     -1.000000f,
+    -0.995185f,
+    -0.980785f,
+    -0.956940f,
     -0.923880f,
+    -0.881921f,
+    -0.831470f,
+    -0.773010f,
     -0.707107f,
+    -0.634393f,
+    -0.555570f,
+    -0.471397f,
     -0.382683f,
+    -0.290285f,
+    -0.195090f,
+    -0.098017f,
      0.000000f,
+     0.098017f,
+     0.195090f,
+     0.290285f,
      0.382683f,
+     0.471397f,
+     0.555570f,
+     0.634393f,
      0.707107f,
+     0.773010f,
+     0.831470f,
+     0.881921f,
      0.923880f,
+     0.956940f,
+     0.980785f,
+     0.995185f,
      1.000000f
 };
 
 static const f32 circle_sin[CIRCLE_SEGMENTS + 1] =
 {
      0.000000f,
+     0.098017f,
+     0.195090f,
+     0.290285f,
      0.382683f,
+     0.471397f,
+     0.555570f,
+     0.634393f,
      0.707107f,
+     0.773010f,
+     0.831470f,
+     0.881921f,
      0.923880f,
+     0.956940f,
+     0.980785f,
+     0.995185f,
      1.000000f,
+     0.995185f,
+     0.980785f,
+     0.956940f,
      0.923880f,
+     0.881921f,
+     0.831470f,
+     0.773010f,
      0.707107f,
+     0.634393f,
+     0.555570f,
+     0.471397f,
      0.382683f,
+     0.290285f,
+     0.195090f,
+     0.098017f,
      0.000000f,
+    -0.098017f,
+    -0.195090f,
+    -0.290285f,
     -0.382683f,
+    -0.471397f,
+    -0.555570f,
+    -0.634393f,
     -0.707107f,
+    -0.773010f,
+    -0.831470f,
+    -0.881921f,
     -0.923880f,
+    -0.956940f,
+    -0.980785f,
+    -0.995185f,
     -1.000000f,
+    -0.995185f,
+    -0.980785f,
+    -0.956940f,
     -0.923880f,
+    -0.881921f,
+    -0.831470f,
+    -0.773010f,
     -0.707107f,
+    -0.634393f,
+    -0.555570f,
+    -0.471397f,
     -0.382683f,
+    -0.290285f,
+    -0.195090f,
+    -0.098017f,
      0.000000f
 };
 
@@ -749,10 +850,7 @@ void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness, Vec4 c
      * RGBAQ
      * XYZ2
      */
-    packet->gif_tag =
-        (prim << 47) |
-        0x2000400000008000ULL |
-        (u64)CIRCLE_VERTICES;
+    packet->gif_tag = (prim << 47) | 0x2000400000008000ULL | (u64)CIRCLE_VERTICES;
 
     packet->gif_regs = 0x41;
 
@@ -783,32 +881,19 @@ void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness, Vec4 c
         /*
          * Outer vertex
          */
-        SetGSColor(
-            &packet->vertices[v].rgba,
-            color
-        );
+        SetGSColor( &packet->vertices[v].rgba, color );
 
         packet->vertices[v].xyz =
-            MakeGSVertex(
-                outer_x,
-                outer_y
-            );
+            MakeGSVertex( outer_x, outer_y );
 
         v++;
 
         /*
          * Inner vertex
          */
-        SetGSColor(
-            &packet->vertices[v].rgba,
-            color
-        );
+        SetGSColor( &packet->vertices[v].rgba, color );
 
-        packet->vertices[v].xyz =
-            MakeGSVertex(
-                inner_x,
-                inner_y
-            );
+        packet->vertices[v].xyz = MakeGSVertex( inner_x, inner_y );
 
         v++;
     }
@@ -834,10 +919,7 @@ void Draw2DCircle( f32 center_x, f32 center_y, f32 radius, f32 thickness, Vec4 c
     packet->dma[2] = 0x11000000;
     packet->dma[3] = 0x50000000 | dma_qwc;
 
-    zSysFifoKick(
-        packet,
-        total_qw
-    );
+    zSysFifoKick( packet, total_qw );
 }
 
 static inline __attribute__((always_inline))

@@ -198,7 +198,7 @@ static_assert(sizeof(tag_RECT) == 0x10, "Size of tag_RECT is not correct.");
 #define GS_ALPHA_NORMAL 0x44ULL
 #define GS_REG_ALPHA_1 0x42
 #define GS_REG_AD      0x0E
-#define CIRCLE_SEGMENTS 32
+#define CIRCLE_SEGMENTS 64
 #define CIRCLE_VERTICES ((CIRCLE_SEGMENTS + 1) * 2)
 
 typedef struct
