@@ -1,108 +1,282 @@
-"""SCUS_972.05 integrated payload exporter. No external Python packages."""
-import argparse, hashlib, struct
-from pathlib import Path
-BASE, STATE, LIMIT = 0x97000, 0x9f000, 0xa0000
-GAME_SHA = '00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a'
-MENU_HOOKS = [
- (0x17d204, 0x0c0c1e60, 0, 'MenuHook97205'),
- (0x17cd18, 0x0c0cd910, 0, 'MenuInputHook97205'),
- (0x17cd7c, 0x0c0ee810, 0x8e6400b8, 'MenuPauseHook97205'),
- (0x17d1b0, 0x0c0ee810, 0xe78098ec, 'MenuPauseHook97205'),
- (0x1e8d3c, 0x0c0ee810, 0x8f849ddc, 'MenuPauseHook97205'),
-]
-# Opt in via --features after updating existing main.c/game.h/structs.h
-# addresses, layouts AND signatures from retail to debug. Menu works separately.
-FEATURE_HOOKS = [
- (0x1ea6c0, 0x0c0a6a14, 0x27a60030, 'hk_CheckDIShoot'),
- (0x2a9d5c, 0x0c0aa280, 0x0240202d, 'hk_HandleFireWeapon'),
- (0x2a9698, 0x0c0aa280, 0x0200202d, 'hk_HandleFireWeapon'),
-]
-def elf(path):
- data=Path(path).read_bytes()
- if data[:7]!=b'\x7fELF\x01\x01\x01': raise ValueError('Expected little endian ELF32')
- h=struct.unpack_from('<16sHHIIIIIHHHHHH',data)
- if h[2]!=8: raise ValueError('Expected MIPS ELF')
- ph=[struct.unpack_from('<8I',data,h[5]+i*h[9]) for i in range(h[10])]
- sh=[struct.unpack_from('<10I',data,h[6]+i*h[11]) for i in range(h[12])]
- return data,ph,sh
+import struct
+import sys
+import argparse
 
-def verify_game(path,hooks):
- data,ph,_=elf(path)
- if hashlib.sha256(data).hexdigest()!=GAME_SHA: raise ValueError('Wrong game ELF: expected uploaded SCUS_972.05')
- for site,word,delay,_ in hooks:
-  found=False
-  for kind,off,va,pa,fs,ms,flags,align in ph:
-   if kind!=1: continue
-   if va<LIMIT and va+ms>BASE: raise ValueError('Game overlaps payload cave')
-   if va<=site and site+8<=va+fs:
-    actual=struct.unpack_from('<II',data,off+site-va)
-    if actual[0]!=word or (delay is not None and actual[1]!=delay): raise ValueError('Hook mismatch at %08X'%site)
-    found=True
-  if not found: raise ValueError('Missing game hook')
 
-def payload(path):
- data,ph,sh=elf(path); chunks=[]; symbols={}
- for s in sh:
-  name,kind,flags,va,off,size,link,info,align,entry=s
-  if kind==2:
-   strings=sh[link]; names=data[strings[4]:strings[4]+strings[5]]
-   for pos in range(off,off+size,entry):
-    n,value,_,_,_,_=struct.unpack_from('<IIIBBH',data,pos)
-    end=names.find(b'\0',n)
-    symbols[names[n:end].decode()]=value
-  if not flags&2 or not size: continue
-  if kind==8:
-   if not STATE<=va or va+size>LIMIT: raise ValueError('BSS outside runtime area')
-   continue
-  if kind!=1: raise ValueError('Unexpected allocated section type')
-  dest=va
-  if flags&1:
-   if not STATE<=va or va+size>LIMIT: raise ValueError('Writable data outside runtime area')
-   matches=[p for p in ph if p[0]==1 and p[2]<=va and va+size<=p[2]+p[4]]
-   if len(matches)!=1: raise ValueError('Missing initialized-data load image')
-   dest=matches[0][3]+va-matches[0][2]
-  if dest<BASE or dest+size>STATE: raise ValueError('Payload/load image exceeds cave')
-  if off+size>len(data): raise ValueError('Truncated section')
-  chunks.append((dest,data[off:off+size]))
- chunks.sort()
- if not chunks or chunks[0][0]!=BASE: raise ValueError('Missing payload base')
- for (a,b),(c,d) in zip(chunks,chunks[1:]):
-  if a+len(b)>c: raise ValueError('Overlapping load image')
- high=max(a+len(b) for a,b in chunks)
- image=bytearray((high-BASE+15)&~15)
- for address,part in chunks: image[address-BASE:address-BASE+len(part)]=part
- return image,symbols
+# Number of bools in CHEAT_FEATURES / CHEAT_MAX.
+# sizeof(bool) == 1 with this toolchain.
+FEATURE_COUNT = 6
 
-def audit(path):
- import re
- for line in Path(path).read_text().splitlines():
-  m=re.match(r'^\s*[0-9a-fA-F]+:\s+[0-9a-fA-F]{8}\s+[A-Za-z][\w.]*\s*(.*)',line)
-  if not m: continue
-  operands=m[1].split('#')[0].split('<')[0]
-  operands=re.sub(r'(?<![\w$])(?:0x[0-9a-fA-F]+|[0-9][0-9a-fA-F]*)(?![\w])','',operands)
-  if re.search(r'(?<![\w])\$?(?:s[0-8]|fp|gp|f(?:2[0-9]|3[01])|1[6-9]|2[0-3]|28|30)(?![\w])',operands):
-   raise ValueError('Reserved register used: '+line)
 
-def main():
- ap=argparse.ArgumentParser();ap.add_argument('--game');ap.add_argument('payload',nargs='?');ap.add_argument('output',nargs='?');ap.add_argument('--features',action='store_true');ap.add_argument('--audit')
- args=ap.parse_args();hooks=MENU_HOOKS+(FEATURE_HOOKS if args.features else [])
- if args.game: verify_game(args.game,hooks)
- if not args.payload:
-  if not args.game: ap.error('Provide a payload and output, or --game for verification only')
-  print('Debug ELF and hook sites verified.');return
- if not args.output: ap.error('Provide the output PNACH path')
- if args.audit: audit(args.audit)
- image,symbols=payload(args.payload)
- lines=['gametitle=SOCOM SCUS_972.05','[NativeHooks Menu]','// Runtime state is initialized by C, never continuously patched.']
- for offset in range(0,len(image),4):
-  lines.append('patch=1,EE,%08X,word,%08X'%(BASE+offset,struct.unpack_from('<I',image,offset)[0]))
- for site,word,delay,name in hooks:
-  target=symbols[name]
-  if not BASE<=target<BASE+len(image) or target&3: raise ValueError('Bad hook symbol '+name)
-  lines.append('patch=1,EE,%08X,word,%08X'%(site,0x0c000000|(target>>2)))
- Path(args.output).write_text('\n'.join(lines)+'\n')
- Path(args.payload).with_suffix('.bin').write_bytes(image)
- print('Generated '+args.output+'; existing feature hooks '+('enabled' if args.features else 'not installed (offset port pending)'))
-if __name__=='__main__':
- try:main()
- except (ValueError,KeyError,OSError,struct.error) as error:raise SystemExit(str(error))
+def make_jal(address):
+    """
+    Encode a MIPS JAL instruction for the supplied target address.
+    """
+    if address & 3:
+        raise ValueError(
+            f"JAL target 0x{address:08X} is not 4-byte aligned."
+        )
+
+    return (
+        0x0C000000 |
+        ((address >> 2) & 0x03FFFFFF)
+    )
+
+
+def write_patch(out, address, value, mode=1):
+    """
+    Write a 32-bit EE PNACH patch.
+
+    mode=1 -> continuously applied
+    mode=0 -> applied once
+    """
+    pnach_addr = 0x20000000 | address
+
+    out.write(
+        f"patch={mode},EE,{pnach_addr:08X},extended,{value:08X}\n"
+    )
+
+
+def overlaps_feature_array(address, feature_addr, feature_size):
+    """
+    Returns True if the 4-byte payload write beginning at 'address'
+    overlaps any byte belonging to m_featureset.
+    """
+    write_start = address
+    write_end = address + 4
+
+    feature_start = feature_addr
+    feature_end = feature_addr + feature_size
+
+    return (
+        write_start < feature_end and
+        write_end > feature_start
+    )
+
+
+if len(sys.argv) < 9:
+    print(
+        f"Usage: python3 {sys.argv[0]} "
+        "<code_cave> "
+        "<input.bin> "
+        "<output.pnach> "
+        "<featureset_address> "
+        "<hook1_address> <hook1_target> "
+        "<hook2_address> <hook2_target>"
+    )
+    sys.exit(1)
+
+
+CODE_CAVE = int(sys.argv[1], 0)
+INPUT_FILE = sys.argv[2]
+OUTPUT_FILE = sys.argv[3]
+
+FEATURESET_ADDR = int(sys.argv[4], 0)
+
+CHECKDISHOOT_HOOK_ADDR = int(sys.argv[5], 0)
+CHECKDISHOOT_TARGET = int(sys.argv[6], 0)
+
+HANDLEFIREWEAPON_HOOK_ADDR = int(sys.argv[7], 0)
+HANDLEFIREWEAPON_TARGET = int(sys.argv[8], 0)
+
+
+# Optional additions: original eight positional arguments still work unchanged.
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument('--mutable-range', nargs=2, type=lambda value: int(value, 0))
+parser.add_argument('--hook', nargs=2, action='append', default=[], type=lambda value: int(value, 0))
+parser.add_argument('--restore', nargs=2, action='append', default=[], type=lambda value: int(value, 0))
+extra = parser.parse_args(sys.argv[9:])
+
+
+#
+# Sanity checks.
+#
+if CODE_CAVE & 3:
+    print("Error: code cave address must be 4-byte aligned.")
+    sys.exit(1)
+
+
+#
+# Read linked payload.
+#
+with open(INPUT_FILE, "rb") as f:
+    data = f.read()
+
+
+if len(data) & 3:
+    print("Error: payload size must be 4-byte aligned.")
+    sys.exit(1)
+
+
+payload_end = CODE_CAVE + len(data)
+
+if not (
+    CODE_CAVE <= FEATURESET_ADDR < payload_end
+):
+    print(
+        "Error: m_featureset is outside the extracted payload.\n"
+        f"  m_featureset: 0x{FEATURESET_ADDR:08X}\n"
+        f"  payload:      0x{CODE_CAVE:08X} - "
+        f"0x{payload_end - 1:08X}"
+    )
+    sys.exit(1)
+
+
+if extra.mutable_range:
+    start, end = extra.mutable_range
+    if start & 3 or end & 3 or not CODE_CAVE <= start <= end <= payload_end:
+        sys.exit('Error: mutable range must be aligned and inside the binary.')
+for site, target in extra.hook:
+    if site & 3 or not CODE_CAVE <= target < payload_end:
+        sys.exit('Error: extra hook site/target is invalid.')
+    make_jal(target)
+
+
+#
+# Generate JAL instructions.
+#
+try:
+    checkdishoot_jal = make_jal(
+        CHECKDISHOOT_TARGET
+    )
+
+    handlefireweapon_jal = make_jal(
+        HANDLEFIREWEAPON_TARGET
+    )
+
+except ValueError as e:
+    print(f"Error: {e}")
+    sys.exit(1)
+
+
+with open(OUTPUT_FILE, "w") as out:
+
+    #
+    # Disable
+    #
+    out.write(
+        "[DEBUG\\ESP\\DISABLE]\n"
+        "author=NightFyre\n"
+        "description=\n"
+        "patch=1,EE,201EBF20,extended,0C0A9D24\n"
+    )
+
+    # Restore the original HandleFireWeapon call as well as CheckDIShoot.
+    write_patch(out, HANDLEFIREWEAPON_HOOK_ADDR, make_jal(0x002B7730))
+    # Supply original instructions here for additional menu hooks when known.
+    for site, original_word in extra.restore:
+        write_patch(out, site, original_word)
+
+    #
+    # Enable
+    #
+    out.write(
+        "[DEBUG\\ESP\\ENABLE]\n"
+        "author=NightFyre\n"
+        "description=Draws 3D Box , Bones and Line to all enemies\n"
+    )
+
+    #
+    # CCameraApp::Tick
+    #
+    # Replace original call with:
+    #
+    #     jal hk_CheckDIShoot
+    #
+    write_patch(
+        out,
+        CHECKDISHOOT_HOOK_ADDR,
+        checkdishoot_jal
+    )
+
+    #
+    # CZKit hook
+    #
+    # Replace original call with:
+    #
+    #     jal hk_HandleFireWeapon
+    #
+    write_patch(
+        out,
+        HANDLEFIREWEAPON_HOOK_ADDR,
+        handlefireweapon_jal
+    )
+
+    for site, target in extra.hook:
+        write_patch(out, site, make_jal(target))
+
+    #
+    # Write linked payload into the code cave.
+    #
+    # Everything is patch=1 EXCEPT DWORDs which overlap
+    # m_featureset. Those use patch=0 so PCSX2 initializes
+    # them once and our runtime code can modify the bools
+    # without PNACH continuously resetting them.
+    #
+    for offset in range(0, len(data), 4):
+
+        value = struct.unpack_from(
+            "<I",
+            data,
+            offset
+        )[0]
+
+        address = CODE_CAVE + offset
+
+        if overlaps_feature_array(
+            address,
+            FEATURESET_ADDR,
+            FEATURE_COUNT
+        ):
+            mode = 0
+        else:
+            mode = 1
+
+        if extra.mutable_range and overlaps_feature_array(
+            address, extra.mutable_range[0], extra.mutable_range[1] - extra.mutable_range[0]
+        ):
+            mode = 0
+
+        write_patch(out, address, value, mode)
+
+
+print(f"Generated {OUTPUT_FILE}")
+print()
+
+print("Hooks:")
+
+print(
+    f"  CheckDIShoot:\n"
+    f"    0x{CHECKDISHOOT_HOOK_ADDR:08X}"
+    f" -> 0x{CHECKDISHOOT_TARGET:08X}"
+    f"  JAL={checkdishoot_jal:08X}"
+)
+
+print(
+    f"  HandleFireWeapon:\n"
+    f"    0x{HANDLEFIREWEAPON_HOOK_ADDR:08X}"
+    f" -> 0x{HANDLEFIREWEAPON_TARGET:08X}"
+    f"  JAL={handlefireweapon_jal:08X}"
+)
+
+print()
+
+print("Feature state:")
+print(
+    f"  m_featureset = 0x{FEATURESET_ADDR:08X}"
+)
+
+for i in range(FEATURE_COUNT):
+    print(
+        f"    [{i}] = 0x{FEATURESET_ADDR + i:08X}"
+    )
+
+print()
+
+print(f"Payload size: 0x{len(data):X} bytes")
+
+print(
+    f"Payload range: "
+    f"0x{CODE_CAVE:08X} - "
+    f"0x{CODE_CAVE + len(data) - 1:08X}"
+)

@@ -375,21 +375,14 @@ void MenuSuppressPad(volatile u8 *pad)
 }
 
 /* Never exported to PNACH. Initialized by running code, not repeated writes. */
-MenuState g_menu __attribute__((section(".menu_state")));
-#define MENU_STATE_MAGIC 0x4e485535u
+MenuState g_menu __attribute__((section(".menu_state"))) = {0};
+#define MENU_STATE_MAGIC 0x4e485536u
 
 void MenuEnsureInitialized(void)
 {
     if (g_menu.magic == MENU_STATE_MAGIC) return;
     g_menu.open = 0;
     unsigned i,j;
-    extern unsigned char __data_start[],__data_end[],__data_load[];
-    extern unsigned char __bss_start[],__bss_end[];
-    volatile unsigned char *dst=__data_start;
-    const unsigned char *initial=__data_load;
-    while (dst<__data_end) *dst++=*initial++;
-    dst=__bss_start;
-    while (dst<__bss_end) *dst++=0;
     g_menu.page=0;
     for (j=0;j<2;++j) {
         g_menu.ui[j].focus=0; g_menu.ui[j].count=0; g_menu.ui[j].height=0;

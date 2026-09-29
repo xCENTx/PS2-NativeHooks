@@ -1878,3 +1878,5 @@ void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
 
     CZKit_HandleFireWeapon(kit, a2, a3, a4);
 }
+// Keep the original single-source build. Header guards prevent repeated game definitions.
+#include "ui.c"
