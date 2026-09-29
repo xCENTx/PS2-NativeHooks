@@ -303,12 +303,15 @@ void DrawMenuRect(float x, float y, float w, float h, Vec4 color)
     NativeMenuTriangle97205(&t, 0);
 }
 
-/* Temporary retail input diagnostics; persistent values must use patch=0. */
+/* Private MenuDebug helpers and state (C uses prefixes instead of namespaces).
+ * Collection stays active; MENU_DEBUG_OVERLAY controls on-screen rendering.
+ * Persistent diagnostic values must use patch=0. */
 static struct {
     u32 ticks, pad, hud, raw, select_state, held, pressed, toggles, after;
-} menu_diag __attribute__((section(".menu_state"))) = {0};
+} g_menuDebug __attribute__((section(".menu_state"))) = {0};
 
-static void MenuDiagnosticLine(const char *label, u32 value, float y)
+#if MENU_DEBUG_OVERLAY
+static void MenuDebug_DrawLine(const char *label, u32 value, float y)
 {
     char line[48];
     const char *hex = "0123456789ABCDEF";
@@ -320,19 +323,21 @@ static void MenuDiagnosticLine(const char *label, u32 value, float y)
     DrawText(line, 32, y, 0.6f, (Vec4){255,255,0,128});
 }
 
-static void MenuDrawDiagnostics(void)
+static void MenuDebug_Draw(void)
 {
-    MenuDiagnosticLine("INPUT TICKS ", menu_diag.ticks, 42);
-    MenuDiagnosticLine("PAD ", menu_diag.pad, 62);
-    MenuDiagnosticLine("HUD ", menu_diag.hud, 82);
-    MenuDiagnosticLine("RAW BUTTONS ", menu_diag.raw, 102);
-    MenuDiagnosticLine("SELECT STATE ", menu_diag.select_state, 122);
-    MenuDiagnosticLine("HELD ", menu_diag.held, 142);
-    MenuDiagnosticLine("PRESS EDGES ", menu_diag.pressed, 162);
-    MenuDiagnosticLine("SELECT EDGES ", menu_diag.toggles, 182);
-    MenuDiagnosticLine("OPEN AFTER INPUT ", menu_diag.after, 202);
-    MenuDiagnosticLine("OPEN AT DRAW ", g_menu.open, 222);
+    MenuDebug_DrawLine("INPUT TICKS ", g_menuDebug.ticks, 42);
+    MenuDebug_DrawLine("PAD ", g_menuDebug.pad, 62);
+    MenuDebug_DrawLine("HUD ", g_menuDebug.hud, 82);
+    MenuDebug_DrawLine("RAW BUTTONS ", g_menuDebug.raw, 102);
+    MenuDebug_DrawLine("SELECT STATE ", g_menuDebug.select_state, 122);
+    MenuDebug_DrawLine("HELD ", g_menuDebug.held, 142);
+    MenuDebug_DrawLine("PRESS EDGES ", g_menuDebug.pressed, 162);
+    MenuDebug_DrawLine("COMBO EDGES ", g_menuDebug.toggles, 182);
+    MenuDebug_DrawLine("OPEN AFTER INPUT ", g_menuDebug.after, 202);
+    MenuDebug_DrawLine("OPEN AT DRAW ", g_menu.open, 222);
 }
+
+#endif /* MENU_DEBUG_OVERLAY */
 
 void MenuFrame97205(void)
 {
@@ -343,7 +348,27 @@ void MenuFrame97205(void)
     font = *(volatile u32 *)(u64)(hud + 0x288);
     if (!font || !*(volatile u32 *)(u64)(font + 0x10)) return;
     MenuDraw();
-    MenuDrawDiagnostics();
+#if MENU_DEBUG_OVERLAY
+    MenuDebug_Draw();
+#endif
+}
+
+static unsigned ReadHeldButtons(void)
+{
+    u32 pad = ((volatile u32 *)g_CInput_pads)[4];
+    unsigned held = 0, i;
+    if (!pad) return 0;
+    for (i = 0; i < 16; ++i) {
+        u8 state = *(volatile u8 *)(u64)(pad + 0x13 + i);
+        if (state == 1 || state == 2) held |= 1u << i;
+    }
+    return held;
+}
+
+bool GetButtonState(unsigned buttons)
+{
+    if (!buttons || (buttons & ~0xFFFFu)) return false;
+    return (ReadHeldButtons() & buttons) == buttons;
 }
 
 /* Runs after CInput::Tick and before the world's pause/scheduler decision. */
@@ -352,17 +377,16 @@ void MenuInput97205(void)
     u32 hud = *(volatile u32 *)gHud;
     u32 pad = ((volatile u32 *)g_CInput_pads)[4];
     unsigned held = 0;
-    unsigned i;
     unsigned was_open;
 
     MenuEnsureInitialized();
 
-    ++menu_diag.ticks;
-    menu_diag.pad = pad;
-    menu_diag.hud = hud;
-    menu_diag.raw = pad ? *(volatile u32 *)(u64)(pad + 0xE8) : 0;
-    menu_diag.select_state = pad ? *(volatile u8 *)(u64)(pad + 0x20) : 0;
-    menu_diag.held = menu_diag.pressed = menu_diag.after = 0;
+    ++g_menuDebug.ticks;
+    g_menuDebug.pad = pad;
+    g_menuDebug.hud = hud;
+    g_menuDebug.raw = pad ? *(volatile u32 *)(u64)(pad + 0xE8) : 0;
+    g_menuDebug.select_state = pad ? *(volatile u8 *)(u64)(pad + 0x13 + 1) : 0;
+    g_menuDebug.held = g_menuDebug.pressed = g_menuDebug.after = 0;
 
     if (!hud || !pad) {
         g_menu.open = 0;
@@ -371,20 +395,16 @@ void MenuInput97205(void)
         return;
     }
 
-    /* Snapshot processed buttons before suppressing gameplay input. */
-    for (i = 0; i < 16; ++i) {
-        u8 key = *(volatile u8 *)(u64)(pad + 0x13 + i);
+    held = ReadHeldButtons();
 
-        if (key == 1 || key == 2)
-            held |= 1u << i;
-    }
-
-    menu_diag.held = held;
-    menu_diag.pressed = held & ~g_menu.previous;
-    if (menu_diag.pressed & MENU_SELECT) ++menu_diag.toggles;
+    g_menuDebug.held = held;
+    g_menuDebug.pressed = held & ~g_menu.previous;
+    if ((held & MENU_STICK_CLICKS) == MENU_STICK_CLICKS &&
+        (g_menu.previous & MENU_STICK_CLICKS) != MENU_STICK_CLICKS)
+        ++g_menuDebug.toggles;
     was_open = g_menu.open;
     MenuUpdate(held);
-    menu_diag.after = g_menu.open;
+    g_menuDebug.after = g_menu.open;
 
     /* Consume held buttons until released after closing the menu. */
     if (was_open || g_menu.open)
@@ -461,11 +481,13 @@ void MenuPauseState(u32 controller, volatile u8 *state, int native_ui)
 }
 void MenuUpdate(unsigned held)
 {
-    unsigned pressed, actions=0;
+    unsigned pressed, previous, actions=0;
     MenuEnsureInitialized();
-    pressed=held & ~g_menu.previous;
+    previous=g_menu.previous;
+    pressed=held & ~previous;
     g_menu.previous=held;
-    if (pressed & MENU_SELECT) {
+    if ((held & MENU_STICK_CLICKS) == MENU_STICK_CLICKS &&
+        (previous & MENU_STICK_CLICKS) != MENU_STICK_CLICKS) {
         g_menu.open=!g_menu.open;
         if (g_menu.open) MenuBuild(UI_INPUT,0);
         return;

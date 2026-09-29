@@ -11,6 +11,11 @@
 #endif
 
 #include <stdint.h>
+/* Set to 1 to show the input diagnostic overlay again. */
+#ifndef MENU_DEBUG_OVERLAY
+#define MENU_DEBUG_OVERLAY 0
+#endif
+
 #define UI_MAX_ITEMS 32
 /* Stable, nonzero IDs belong to the caller, not a row's position. */
 enum { UI_UP=1, UI_DOWN=2, UI_LEFT=4, UI_RIGHT=8, UI_ACTIVATE=16 };
@@ -55,7 +60,8 @@ enum {
     MENU_UP = 1u << 4, 
     MENU_DOWN = 1u << 5,
     MENU_CIRCLE = 1u << 7, 
-    MENU_CROSS = 1u << 9
+    MENU_CROSS = 1u << 9,
+    MENU_STICK_CLICKS = (1u << 14) | (1u << 15)
 };
 typedef struct {
     unsigned open, scale_index, accent_index, previous, page;
@@ -67,6 +73,10 @@ typedef struct {
 } MenuState;
 
 extern MenuState g_menu;
+/* True when ALL requested buttons are pressed/held (states 1 or 2).
+ * Combine enum masks with |. Zero/invalid masks or no pad return false.
+ * Call before MenuSuppressPad; this does not detect press edges. */
+bool GetButtonState(unsigned buttons);
 void MenuUpdate(unsigned held);
 void MenuEnsureInitialized(void);
 void MenuPauseState(u32 controller, volatile u8 *state, int native_ui);

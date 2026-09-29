@@ -60,7 +60,7 @@ void MenuBuild(unsigned pass,unsigned pressed)
     UI_Spacing(&ui,8);
     UI_Text(&ui,"D-PAD: MOVE / CHANGE    CROSS: SELECT",0.6f,style.muted);
     UI_Spacing(&ui,6);
-    UI_Text(&ui,"SELECT: TOGGLE    CIRCLE: CLOSE",0.6f,style.muted);
+    UI_Text(&ui,"L3 + R3: TOGGLE    CIRCLE: CLOSE",0.6f,style.muted);
     UI_EndWindow(&ui);
 }
 void MenuDraw(void)
