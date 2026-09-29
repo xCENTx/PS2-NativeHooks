@@ -7,6 +7,11 @@ SECTIONS
         *(.hook)
     }
 
+    .hook_teleport :
+    {
+        *(.hook_teleport)
+    }
+
     .text :
     {
         *(.text*)
@@ -16,6 +21,11 @@ SECTIONS
     {
         *(.rodata*)
         *(.rodata.*)
+    }
+
+    .cheats :
+    {
+        *(.cheats)
     }
 
     .data :
