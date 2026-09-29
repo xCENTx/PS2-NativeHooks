@@ -318,7 +318,7 @@ void MenuFrame97205(void)
 void MenuInput97205(void)
 {
     u32 hud = *(volatile u32 *)gHud;
-    u32 pad = *(volatile u32 *)g_CInput_pads; // debug 0x00474e30;
+    u32 pad = ((volatile u32 *)g_CInput_pads)[4]; // debug 0x00474e30;
     u32 app = *(volatile u32 *)gAppCamera; // debug 0x00475908;
     u32 body = app ? *(volatile u32 *)(u64)(app + 0x3c) : 0;
     u32 controller = body ? *(volatile u32 *)(u64)(body + 0xc0) : 0;
