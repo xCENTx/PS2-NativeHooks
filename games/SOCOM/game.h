@@ -20,6 +20,9 @@
 
 #define g_MessageQue 0x4D4990
 
+#define g_vft_BatchRelocator 0x48A520
+#define g_vft_2DString_2 0x48A730
+#define g_CInput_pads 0x48C8D0
 // ------------------------------------------------------------
 // Native functions
 // ------------------------------------------------------------
@@ -104,6 +107,26 @@ typedef s64(*C2DMessage_Q_Add_Message_t)(void* a1, const char* msg, float a3); /
 
 typedef s64(*CZSealBody_TeleportTo_t)(CZSealBody* seal, const Matrix4x4* matrix);
 #define CZSealBody_TeleportTo ((CZSealBody_TeleportTo_t)0x2537D0)
+
+// hook for rendering menu
+typedef void(*zVid_ZTestOn_t)();
+#define zVid_ZTestOn ((zVid_ZTestOn_t)0x31ED90)
+
+// hook for capturing input
+typedef u64(*recoTick_t)();
+#define recoTick ((recoTick_t)0x352B70)
+
+// hook to pause the game
+typedef u64(*CHUD_PauseGame_t)();
+#define CHUD_PauseGame ((CHUD_PauseGame_t)0x3D9DF0)
+
+typedef void(*C2DString_MakePacket_t)(void*, const u32* relocator, int depth);
+#define C2DString_MakePacket ((C2DString_MakePacket_t)0x319750)
+
+typedef void(*C2DPoly_MakePacket_t)(void*, void*);
+#define C2DPoly_MakePacket ((C2DPoly_MakePacket_t)0x3180F0)
+
+
 
 // ------------------------------------------------------------
 // Constants

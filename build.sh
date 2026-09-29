@@ -1,106 +1,29 @@
-#!/bin/bash
-
-set -e
-
-CC=mips64r5900el-ps2-elf-gcc
-OBJCOPY=mips64r5900el-ps2-elf-objcopy
-NM=mips64r5900el-ps2-elf-nm
-
-SOURCE=main.c
-OBJECT=bin/SOCOM.o
-ELF=bin/SOCOM.elf
-BINARY=bin/SOCOM.bin
-LINKER=linker/cave.ld
-PNACH=bin/SOCOM.pnach
-
-# Location where the entire linked payload is written.
-CODE_CAVE=0x00097000
-
-# Original game JAL locations.
-CHECKDISHOOT_HOOK_ADDR=0x001EBF20
-HANDLEFIREWEAPON_HOOK_ADDR=0x002B927C
-
-if [ -z "$PS2SDK" ]; then
-    echo "Error: PS2SDK is not set. Run the PS2 toolchain environment script first."
-    exit 1
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+# Menu native offsets target debug SCUS_972.05 only.
+GAME_ELF=${1:-} # Optional original ELF for hook verification
+CC=${CC:-mips64r5900el-ps2-elf-gcc}
+NM=${NM:-mips64r5900el-ps2-elf-nm}
+OBJDUMP=${OBJDUMP:-mips64r5900el-ps2-elf-objdump}
+# Existing feature-hook setting; override with ENABLE_FEATURE_HOOKS=0 if desired.
+ENABLE_FEATURE_HOOKS=${ENABLE_FEATURE_HOOKS:-1}
+extra=()
+if [[ "$ENABLE_FEATURE_HOOKS" == 1 ]]; then extra+=(--features); fi
+if [[ -n "$GAME_ELF" ]]; then
+    extra+=(--game "$GAME_ELF")
+    python3 GENPnach.py "${extra[@]}"
 fi
-
-echo "[1/4] Compiling..."
-$CC -O2 -c "$SOURCE" -o "$OBJECT"
-
-echo "[2/4] Linking..."
-$CC \
-    -nostdlib \
-    -nostartfiles \
-    -T "$LINKER" \
-    "$OBJECT" \
-    -o "$ELF"
-
-#
-# Resolve the actual linked addresses of our hook functions.
-#
-CHECKDISHOOT_ADDR=$(
-    $NM -n "$ELF" |
-    awk '$3 == "hk_CheckDIShoot" { print "0x"$1; exit }'
-)
-
-HANDLEFIREWEAPON_ADDR=$(
-    $NM -n "$ELF" |
-    awk '$3 == "hk_HandleFireWeapon" { print "0x"$1; exit }'
-)
-
-FEATURESET_ADDR=$(
-    $NM -n "$ELF" |
-    awk '$3 == "m_featureset" { print "0x"$1; exit }'
-)
-
-if [ -z "$CHECKDISHOOT_ADDR" ]; then
-    echo "Error: Could not find hk_CheckDIShoot in $ELF"
-    exit 1
-fi
-
-if [ -z "$HANDLEFIREWEAPON_ADDR" ]; then
-    echo "Error: Could not find hk_WillFireWeapon in $ELF"
-    exit 1
-fi
-
-if [ -z "$FEATURESET_ADDR" ]; then
-    echo "Error: Could not find m_featureset in $ELF"
-    exit 1
-fi
-
-echo
-echo "Resolved hook addresses:"
-echo "  hk_CheckDIShoot   = $CHECKDISHOOT_ADDR"
-echo "  hk_WillFireWeapon = $HANDLEFIREWEAPON_ADDR"
-echo "  m_featureset      = $FEATURESET_ADDR"
-echo
-
-
-
-echo "[3/4] Extracting payload..."
-$OBJCOPY \
-    -O binary \
-    -j .hook \
-    -j .hook_teleport \
-    -j .text \
-    -j .rodata \
-    -j .cheats \
-    -j .data \
-    "$ELF" \
-    "$BINARY"
-
-echo "[4/4] Generating PNACH..."
-python3 GENPnach.py \
-    "$CODE_CAVE" \
-    "$BINARY" \
-    "$PNACH" \
-    "$FEATURESET_ADDR" \
-    "$CHECKDISHOOT_HOOK_ADDR" \
-    "$CHECKDISHOOT_ADDR" \
-    "$HANDLEFIREWEAPON_HOOK_ADDR" \
-    "$HANDLEFIREWEAPON_ADDR"
-
-echo
-echo "Build complete."
-echo "Output: $PNACH"
+mkdir -p bin
+flags=(-O2 -std=gnu11 -G0 -mno-abicalls -fno-pic -ffreestanding -fno-builtin
+ -fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables -fomit-frame-pointer
+ '-ffixed-$16' '-ffixed-$17' '-ffixed-$18' '-ffixed-$19' '-ffixed-$20'
+ '-ffixed-$21' '-ffixed-$22' '-ffixed-$23' '-ffixed-$28' '-ffixed-$30')
+for number in {20..31}; do flags+=("-ffixed-\$f${number}"); done
+"$CC" "${flags[@]}" -c main.c -o bin/SOCOM.o
+"$CC" "${flags[@]}" -c ui.c -o bin/ui.o
+"$CC" -G0 -mno-abicalls -fno-pic -nostdlib -nostartfiles \
+ -Wl,--build-id=none,-Map,bin/SOCOM.map -T linker/cave.ld bin/ui.o bin/SOCOM.o -o bin/SOCOM.elf
+if [[ -n "$("$NM" -u bin/SOCOM.elf)" ]]; then echo 'Unresolved payload symbols'; exit 1; fi
+"$OBJDUMP" -d bin/SOCOM.elf > bin/SOCOM.asm.txt
+python3 GENPnach.py bin/SOCOM.elf bin/SOCOM.pnach --audit bin/SOCOM.asm.txt "${extra[@]}"
