@@ -21,57 +21,78 @@ enum
 __attribute__((section(".cheats")))
 static bool m_featureset[CHEAT_MAX] = { false };
 
-// Menu content stays here beside the feature flags. ui.c handles the plumbing.
-static const float menu_scales[]={0.65f,0.8f,1.0f};
-static const char *const menu_sizes[]={"SMALL","MEDIUM","LARGE"};
-static const char *const menu_colors[]={"CYAN","AMBER","GREEN"};
-static const char *const menu_pages[]={"FEATURES","DISPLAY"};
-static const Vec4 menu_accents[]={{65,210,235,128},{255,195,65,128},{100,235,155,128}};
-void MenuBuild(unsigned pass,unsigned pressed)
+// ------------------------------------------------------------
+// Menu
+// ------------------------------------------------------------
+static const f32 menu_scales[] = {0.65f, 0.8f, 1.0f};
+static const char* const menu_sizes[] = {"SMALL", "MEDIUM", "LARGE"};
+static const char* const menu_colors[] = {"CYAN", "AMBER", "GREEN"};
+static const char* const menu_pages[] = {"FEATURES", "DISPLAY"};
+static const Vec4 menu_accents[] = {{65, 210, 235, 128}, {255, 195, 65, 128}, {100, 235, 155, 128}};
+void MenuBuild(u32 pass, u32 pressed)
 {
     UIContext ui;
-    const UILayout layout={28,28,584,10};
-    UIStyle style={28,2,4,0.67f,24,8,4,
-        {12,18,28,112},{35,58,73,112},{235,240,245,128},
-        {160,174,190,128},{0,0,0,0}};
-    unsigned page=g_menu.page;
-    float scale=menu_scales[g_menu.scale_index];
-    style.accent=menu_accents[g_menu.accent_index];
-    UI_BeginWindow(&ui,&g_menu.ui[page],&layout,&style,pass,pressed);
-    UI_Text(&ui,"SOCOM - NATIVE MENU",1.0f,style.text);
-    UI_Text(&ui,"SCUS 972.05",0.65f,style.muted);
-    UI_Spacing(&ui,10);
-    UI_Combo(&ui,100,"PAGE",&g_menu.page,menu_pages,2,scale);
-    if(page==0) {
-        UI_Checkbox(&ui,1,"ESP",&m_featureset[CHEAT_ESP],scale);
-        UI_Checkbox(&ui,2,"INFINITE AMMO",&m_featureset[CHEAT_INFINITE_AMMO],scale);
-        UI_Checkbox(&ui,3,"NO RELOAD",&m_featureset[CHEAT_NO_RELOAD],scale);
-        UI_Checkbox(&ui,4,"PERFECT SHOT",&m_featureset[CHEAT_PERFECT_SHOT],scale);
-        UI_Checkbox(&ui,5,"AIMBOT",&m_featureset[CHEAT_AIMBOT],scale);
-        UI_Checkbox(&ui,6,"TELEPORT TO CROSSHAIR",&m_featureset[CHEAT_TELEPORT_TO_XHAIR],scale);
-    } else {
-        UI_Checkbox(&ui,101,"WATERMARK",&g_menu.watermark,scale);
-        UI_Combo(&ui,102,"TEXT SIZE",&g_menu.scale_index,menu_sizes,3,scale);
-        UI_Combo(&ui,103,"ACCENT COLOR",&g_menu.accent_index,menu_colors,3,scale);
-        if(UI_Button(&ui,104,"RESET DISPLAY",scale)) {
-            g_menu.watermark=true;g_menu.scale_index=1;g_menu.accent_index=0;
+    const UILayout layout = {28, 28, 584, 10};
+    UIStyle style = {28,
+                     2,
+                     4,
+                     0.67f,
+                     24,
+                     8,
+                     4,
+                     {12, 18, 28, 112},
+                     {35, 58, 73, 112},
+                     {235, 240, 245, 128},
+                     {160, 174, 190, 128},
+                     {0, 0, 0, 0}};
+    u32 page = g_menu.page;
+    f32 scale = menu_scales[g_menu.scale_index];
+    style.accent = menu_accents[g_menu.accent_index];
+    UI_BeginWindow(&ui, &g_menu.ui[page], &layout, &style, pass, pressed);
+    UI_Text(&ui, "SOCOM - NATIVE MENU", 1.0f, style.text);
+    UI_Text(&ui, "SCUS 972.05", 0.65f, style.muted);
+    UI_Spacing(&ui, 10);
+    UI_Combo(&ui, 100, "PAGE", &g_menu.page, menu_pages, 2, scale);
+    if (page == 0)
+    {
+        UI_Checkbox(&ui, 1, "ESP", &m_featureset[CHEAT_ESP], scale);
+        UI_Checkbox(&ui, 2, "INFINITE AMMO", &m_featureset[CHEAT_INFINITE_AMMO], scale);
+        UI_Checkbox(&ui, 3, "NO RELOAD", &m_featureset[CHEAT_NO_RELOAD], scale);
+        UI_Checkbox(&ui, 4, "PERFECT SHOT", &m_featureset[CHEAT_PERFECT_SHOT], scale);
+        UI_Checkbox(&ui, 5, "AIMBOT", &m_featureset[CHEAT_AIMBOT], scale);
+        UI_Checkbox(&ui, 6, "TELEPORT TO CROSSHAIR", &m_featureset[CHEAT_TELEPORT_TO_XHAIR], scale);
+    }
+    else
+    {
+        UI_Checkbox(&ui, 101, "WATERMARK", &g_menu.watermark, scale);
+        UI_Combo(&ui, 102, "TEXT SIZE", &g_menu.scale_index, menu_sizes, 3, scale);
+        UI_Combo(&ui, 103, "ACCENT COLOR", &g_menu.accent_index, menu_colors, 3, scale);
+        if (UI_Button(&ui, 104, "RESET DISPLAY", scale))
+        {
+            g_menu.watermark = true;
+            g_menu.scale_index = 1;
+            g_menu.accent_index = 0;
         }
     }
-    UI_Spacing(&ui,8);
-    UI_Text(&ui,"D-PAD: MOVE / CHANGE    CROSS: SELECT",0.6f,style.muted);
-    UI_Spacing(&ui,6);
-    UI_Text(&ui,"L3 + R3: TOGGLE    CIRCLE: CLOSE",0.6f,style.muted);
+    UI_Spacing(&ui, 8);
+    UI_Text(&ui, "D-PAD: MOVE / CHANGE    CROSS: SELECT", 0.6f, style.muted);
+    UI_Spacing(&ui, 6);
+    UI_Text(&ui, "L3 + R3: TOGGLE    CIRCLE: CLOSE", 0.6f, style.muted);
     UI_EndWindow(&ui);
 }
+
 void MenuDraw(void)
 {
-    if(g_menu.watermark)
-        DrawText("PS2-NativeHooks by NightFyre",32,408,
-                 menu_scales[g_menu.scale_index],menu_accents[g_menu.accent_index]);
-    if(g_menu.open) MenuBuild(UI_DRAW,0);
+    if (g_menu.watermark)
+    {
+        DrawText("PS2-NativeHooks by NightFyre", 32, 408, menu_scales[g_menu.scale_index],
+                 menu_accents[g_menu.accent_index]);
+    }
+    if (g_menu.open)
+    {
+        MenuBuild(UI_DRAW, 0);
+    }
 }
-
-
 
 #define BONE_INVALID (-1)
 static const s32 BoneChains[][6] =
