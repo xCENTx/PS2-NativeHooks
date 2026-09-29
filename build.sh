@@ -22,9 +22,12 @@ HANDLEFIREWEAPON_HOOK_ADDR=0x002B927C
 
 # Fill in RETAIL call sites when reversed (not native function entry addresses).
 # Zero leaves that additional hook uninstalled; the original two hooks remain.
-MENU_DRAW_HOOK_ADDR=0
-MENU_INPUT_HOOK_ADDR=0
-MENU_PAUSE_HOOK_ADDR=0
+# calls to zVid_ZTestOn , recoTick & CHUD_PauseGame
+MENU_DRAW_HOOK_ADDR=0x0017C5FC
+MENU_INPUT_HOOK_ADDR=0x0017C358
+MENU_PAUSE_HOOK_ADDR=0x0017C37C
+MENU_PAUSE_HOOK_ADDR_2=0x0017C590
+MENU_PAUSE_HOOK_ADDR_3=0x001EA45C
 
 if [ -z "$PS2SDK" ]; then
     echo "Error: PS2SDK is not set. Run the PS2 toolchain environment script first."
@@ -103,8 +106,10 @@ done
 MENU_ARGS=(--mutable-range "$MUTABLE_START" "$MUTABLE_END")
 if (( MENU_DRAW_HOOK_ADDR )); then MENU_ARGS+=(--hook "$MENU_DRAW_HOOK_ADDR" "$MENU_DRAW_ADDR"); fi
 if (( MENU_INPUT_HOOK_ADDR )); then MENU_ARGS+=(--hook "$MENU_INPUT_HOOK_ADDR" "$MENU_INPUT_ADDR"); fi
-if (( MENU_PAUSE_HOOK_ADDR )); then MENU_ARGS+=(--hook "$MENU_PAUSE_HOOK_ADDR" "$MENU_PAUSE_ADDR"); fi
-if (( ! MENU_DRAW_HOOK_ADDR || ! MENU_INPUT_HOOK_ADDR || ! MENU_PAUSE_HOOK_ADDR )); then
+for pause_site in "$MENU_PAUSE_HOOK_ADDR" "$MENU_PAUSE_HOOK_ADDR_2" "$MENU_PAUSE_HOOK_ADDR_3"; do
+    if (( pause_site )); then MENU_ARGS+=(--hook "$pause_site" "$MENU_PAUSE_ADDR"); fi
+done
+if (( ! MENU_DRAW_HOOK_ADDR || ! MENU_INPUT_HOOK_ADDR || ! MENU_PAUSE_HOOK_ADDR || ! MENU_PAUSE_HOOK_ADDR_2 || ! MENU_PAUSE_HOOK_ADDR_3 )); then
     echo "Menu call-site offsets are pending in build.sh; zero entries are not patched."
 fi
 

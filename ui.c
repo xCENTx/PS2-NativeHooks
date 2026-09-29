@@ -153,37 +153,38 @@ void NativeMenuTriangle97205(void *object, void *camera)
  * Never pass it to Load, SetString, Draw, Tick, or a destructor.
  */
 typedef struct {
-    u32 unused00[3];              /* 00: unused child list */
-    u32 vtable;                    /* 0c */
+    u8 unknown00[0x0C];
+    u32 vtable;                     /* 0x0C */
     u32 unused10;
     u8 enabled, flags, unused16[2];
     u32 unused18;
-    u32 font;                      /* 1c */
-    u32 text;                      /* 20: borrowed, NUL-terminated suffix */
-    u32 unused24;
-    int32_t length;                     /* 28: length of this line */
-    u32 unused2c[7];
-    float scale;                       /* 48 */
-    u32 unused4c;
-    float rgba[4];                     /* 50 */
-    u32 unused60[4];
-    u8 unused70, centered, unused72[2];
-    int32_t first;                      /* 74: first byte to render */
-    int32_t width_out;                  /* 78: written by MakePacket */
-    u32 unused7c;
-    int32_t x16, y16;                   /* 80,84: signed pixel * 16 */
+    u32 font;                       /* 0x1C */
+    u32 text;                       /* 0x20 */
+    u32 unknown24;
+    s32 length;                     /* 0x28 */
+    u8 unknown2C[0x20];
+    float scale;                    /* 0x4C */
+    u32 unknown50;
+    float rgba[4];                  /* 0x54 */
+    u8 unknown64[0x11];
+    u8 centered;                    /* 0x75 */
+    u8 right_aligned;               /* 0x76 */
+    u8 unknown77;
+    s32 first;                      /* 0x78 */
+    s32 width_out;                  /* 0x7C */
+    u32 unknown80;
+    s32 x16;                        /* 0x84 */
+    s32 y16;                        /* 0x88 */
 } NativeTextPacket;
-
-_Static_assert(sizeof(void *) == 4, "Compile for the 32-bit PS2 EE address space");
-_Static_assert(sizeof(NativeTextPacket) == 0x88, "descriptor size");
+_Static_assert(sizeof(NativeTextPacket) == 0x8C, "descriptor size");
 _Static_assert(offsetof(NativeTextPacket, font) == 0x1c, "font offset");
 _Static_assert(offsetof(NativeTextPacket, text) == 0x20, "text offset");
 _Static_assert(offsetof(NativeTextPacket, length) == 0x28, "length offset");
-_Static_assert(offsetof(NativeTextPacket, scale) == 0x48, "scale offset");
-_Static_assert(offsetof(NativeTextPacket, rgba) == 0x50, "color offset");
-_Static_assert(offsetof(NativeTextPacket, centered) == 0x71, "centering offset");
-_Static_assert(offsetof(NativeTextPacket, first) == 0x74, "start offset");
-_Static_assert(offsetof(NativeTextPacket, x16) == 0x80, "position offset");
+_Static_assert(offsetof(NativeTextPacket, scale) == 0x4C, "scale offset");
+_Static_assert(offsetof(NativeTextPacket, rgba) == 0x54, "color offset");
+_Static_assert(offsetof(NativeTextPacket, centered) == 0x75, "centering offset");
+_Static_assert(offsetof(NativeTextPacket, first) == 0x78, "start offset");
+_Static_assert(offsetof(NativeTextPacket, x16) == 0x84, "position offset");
 
 
 static u32 read_u32(u32 p) { return *(volatile u32 *)(u64)p; }
