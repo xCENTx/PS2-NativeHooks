@@ -4,6 +4,21 @@
 // ------------------------------------------------------------
 // statics
 // ------------------------------------------------------------
+typedef s8 CHEAT_FEATURES;
+enum
+{
+    CHEAT_ESP,
+    CHEAT_INFINITE_AMMO,
+    CHEAT_NO_RELOAD,
+    CHEAT_PERFECT_SHOT,
+    CHEAT_AIMBOT,
+    CHEAT_TELEPORT_TO_XHAIR,
+    CHEAT_MAX
+};
+__attribute__((section(".cheats")))
+static bool m_featureset[CHEAT_MAX] = { false };
+
+
 #define BONE_INVALID (-1)
 static const s32 BoneChains[][6] =
 {
@@ -618,6 +633,12 @@ static bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
 
     return false;
 }
+
+// ------------------------------------------------------------
+// Message System
+// ------------------------------------------------------------
+
+static void Notification(const char* msg, float timer) { C2DMessage_AddMessage((void*)0x4D4990, msg, timer); }
 
 // ------------------------------------------------------------
 // Draw Primitives
@@ -1567,6 +1588,9 @@ static void ProcessPlayerESP(void* obj, void* ctx)
     //  wsDrawBoundingBox(pNode);
     spDrawSkeleton(entity);
 
+    if (!m_featureset[CHEAT_AIMBOT])
+        return;
+
     Vec2 screen;
     Vec3 wsBoneHead;
     if (IsVisible(esp->seal, entity) == false || GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) == false || WorldToScreen(wsBoneHead, &screen) == false)
@@ -1623,6 +1647,7 @@ static void ProcessPickupESP(void* obj, void* ctx)
     esp->target = pickup;
 }
 
+
 // ------------------------------------------------------------
 // Native Hook
 // ------------------------------------------------------------
@@ -1639,6 +1664,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     // ESP
     ctxPlayerESP ctxPlayers;
     ctxPickupESP ctxPickups;
+    if (m_featureset[CHEAT_ESP])
     {
         ctxPlayers.seal = seal;
         ctxPlayers.target = 0;
@@ -1652,6 +1678,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 
     // infinite ammo
+    if (m_featureset[CHEAT_INFINITE_AMMO])
     {
         CZKit* kit = &seal->mKit;
         for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
@@ -1686,6 +1713,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 
     // perfect shot
+    if (m_featureset[CHEAT_PERFECT_SHOT])
     {
         seal->mShoulderRecoil = 0.0f;
         
@@ -1696,6 +1724,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 
     // no reload time / rechamber
+    if (m_featureset[CHEAT_NO_RELOAD])
     {
         CZKit* kit = &seal->mKit;
         for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
@@ -1710,36 +1739,86 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
         }
     }
 
-    // aimbot
-    if (ctxPlayers.target != 0)
-    {   
-        Vec2 screen[2];
-        Vec3 targetOrigin[2];
-        if (ctxPlayers.target && GetBoneWorldPosByIndex(ctxPlayers.target, FT_BONE_head, &targetOrigin[0]) && WorldToScreen(targetOrigin[0], &screen[0])
-            && GetBoneWorldPosByIndex(seal, FT_BONE_rhand, &targetOrigin[1]) && WorldToScreen(targetOrigin[1], &screen[1]))
-        {
-            seal->mReticlePt = targetOrigin[0];    
-            seal->mAimPoint = targetOrigin[0];    
-            //  float start[4] = {320.f, 224.f, 0.f, 1.f};
-            //  float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
-            //  float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
-            //  float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
-            //  Draw2DLine(start, end, color_start, color_end);
-            //  DrawSmooth2DLineNative(screen[0].x, screen[0].y, screen[1].x, screen[1].y, 0.5f, (Vec4){1.0f, 1.0f, 1.0f, 0.5f}, (Vec4){1.0f, 0.0f, 0.0f, 0.5f} );
-            
-            // draw laser ( beautiful )
-            float start[4] = {targetOrigin[1].x, targetOrigin[1].y, targetOrigin[1].z, 1.f};
-            float end[4] = {targetOrigin[0].x, targetOrigin[0].y, targetOrigin[0].z, 1.f};
-            float color_start[4] = {1.0f, 1.0f, 1.0f, 0.5f};
-            float color_end[4] = {1.0f, 0.0f, 0.0f, 0.5f};
-            RenderLineWorld(start, end, color_start, color_end);
 
-            // Draw 
-            // DrawFeathered2DLine( screen[0].x, screen[0].y, screen[1].x, screen[1].y, 0.5f, 0.75f, (Vec4){1.0f, 1.0f, 1.0f, 0.5f}, (Vec4){1.0f, 0.0f, 0.0f, 0.5f} );
-            
-        }
+    // teleport to crosshair
+    Vec3 firepoint;
+    if ( m_featureset[CHEAT_TELEPORT_TO_XHAIR]
+        && CZSealBody_GetFirepointPos(seal, &firepoint.x, 0x46B500)
+        && seal->mAimWorldPos.x != 0.0f && seal->mAimWorldPos.y != 0.0f && seal->mAimWorldPos.y != 0.0f
+    )
+    {
+        float start[4] = {firepoint.x, firepoint.y, firepoint.z, 1.f};
+        float end[4] = {seal->mReticlePt.x, seal->mReticlePt.y, seal->mReticlePt.z, 1.f};
+        float color_start[4] = {1.0f, 1.0f, 1.0f, 0.5f};
+        float color_end[4] = {0.0f, 1.0f, 0.0f, 0.5f};
+        RenderLineWorld(start, end, color_start, color_end);
     }
 
-    // draw aim fov
-    Draw2DCircle(320.f, 224.f, AIM_FOV, 1.0f, (Vec4){1.0f, 1.0f, 1.0f, 1.0f });
+    // aimbot
+    if (m_featureset[CHEAT_AIMBOT])
+    {   
+        if (ctxPlayers.target != 0)
+        {
+            Vec2 screen[2];
+            Vec3 targetOrigin[2];
+            if (GetBoneWorldPosByIndex(ctxPlayers.target, FT_BONE_head, &targetOrigin[0]) 
+                && WorldToScreen(targetOrigin[0], &screen[0])
+                && CZSealBody_GetFirepointPos(seal, &targetOrigin[1].x, 0x46B500) && WorldToScreen(targetOrigin[1], &screen[1]))
+            {
+                seal->mReticlePt = targetOrigin[0];    
+                seal->mAimPoint = targetOrigin[0];    
+                //  float start[4] = {320.f, 224.f, 0.f, 1.f};
+                //  float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
+                //  float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
+                //  float color_end[4] = {1.f, 0.0f, 0.0f, 0.75f};
+                //  Draw2DLine(start, end, color_start, color_end);
+                //  DrawSmooth2DLineNative(screen[0].x, screen[0].y, screen[1].x, screen[1].y, 0.5f, (Vec4){1.0f, 1.0f, 1.0f, 0.5f}, (Vec4){1.0f, 0.0f, 0.0f, 0.5f} );
+
+                // draw laser ( beautiful )
+                float start[4] = {targetOrigin[1].x, targetOrigin[1].y, targetOrigin[1].z, 1.f};
+                float end[4] = {targetOrigin[0].x, targetOrigin[0].y, targetOrigin[0].z, 1.f};
+                float color_start[4] = {1.0f, 1.0f, 1.0f, 0.5f};
+                float color_end[4] = {1.0f, 0.0f, 0.0f, 0.5f};
+                RenderLineWorld(start, end, color_start, color_end);
+
+                // Draw 
+                // DrawFeathered2DLine( screen[0].x, screen[0].y, screen[1].x, screen[1].y, 0.5f, 0.75f, (Vec4){1.0f, 1.0f, 1.0f, 0.5f}, (Vec4){1.0f, 0.0f, 0.0f, 0.5f} );
+
+            }
+        }
+
+        // draw aim fov
+        Draw2DCircle(320.f, 224.f, AIM_FOV, 1.0f, (Vec4){1.0f, 1.0f, 1.0f, 1.0f });
+    }
+}
+
+//
+__attribute__((section(".hook_teleport"), noinline))
+void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
+{
+    CZSealBody* local_seal = ftsGetPlayer();
+    CZSealBody* this_seal = (CZSealBody*)kit->pSealBody;
+
+    Vec3 firepoint;
+    if (m_featureset[CHEAT_TELEPORT_TO_XHAIR]
+        && local_seal && local_seal == this_seal 
+        && local_seal->mAimWorldPos.x != 0.0f && local_seal->mAimWorldPos.y != 0.0f && local_seal->mAimWorldPos.y != 0.0f
+        && CZSealBody_GetFirepointPos(local_seal, &firepoint.x, 0x46B500)
+    )
+    {
+        Matrix4x4 teleport = local_seal->mMatrix;
+        
+        //  target location
+        teleport.m[3][0] = local_seal->mReticlePt.x;
+        teleport.m[3][1] = local_seal->mReticlePt.y;
+        teleport.m[3][2] = local_seal->mReticlePt.z;
+
+        // Teleport
+        CZSealBody_TeleportTo(local_seal, &teleport);
+        Notification("Teleporting to location", 0.0f);
+
+        return;
+    }
+
+    CZKit_HandleFireWeapon(kit, a2, a3, a4);
 }

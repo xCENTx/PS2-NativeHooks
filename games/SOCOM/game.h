@@ -18,6 +18,8 @@
 #define tickAnimFireWeapon 0x1B7C90
 #define g_GS_Z_OFFSET 0x0048CF50
 
+#define g_MessageQue 0x4D4990
+
 // ------------------------------------------------------------
 // Native functions
 // ------------------------------------------------------------
@@ -79,6 +81,29 @@ typedef void(*sceVu0RotTransPers_t)(s32* dst, f32* mtx, f32* src, s32 mode);
 typedef void(*zSysFifoKick_t)(void* a1, s32 a2);
 #define zSysFifoKick ((zSysFifoKick_t)0x30CFB0)
 
+typedef bool(*CZSealBody_GetFirepointPos_t)(CZSealBody* a1, float *a2, s64 a3);
+#define CZSealBody_GetFirepointPos ((CZSealBody_GetFirepointPos_t)0x2D1720)
+
+typedef bool(*CZKit_IsLauncherWeapon_t)(CZKit* a1);
+#define CZKit_IsLauncherWeapon ((CZKit_IsLauncherWeapon_t)0x32EB90)
+
+typedef bool(*CZKit_WeaponIsGrenadeLauncherMode_t)(CZKit *a1, s64 a2);
+#define CZKit_WeaponIsGrenadeLauncherMode ((CZKit_WeaponIsGrenadeLauncherMode_t)0x2B6710)
+
+// not used
+typedef void(*CZKit_WillFireWeapon_t)(CZKit* a1, float a2);
+#define CZKit_WillFireWeapon ((CZKit_WillFireWeapon_t)0x2B9140)
+
+// hook for teleporting on fire event
+typedef void(*CZKit_HandleFireWeapon_t)(CZKit* a1, s64 a2, s64 a3, float a4);
+#define CZKit_HandleFireWeapon ((CZKit_HandleFireWeapon_t)0x2B7730)
+
+// used for drawing messages
+typedef s64(*C2DMessage_Q_Add_Message_t)(void* a1, const char* msg, float a3); // adds a message to the message que top center of screen
+#define C2DMessage_AddMessage ((C2DMessage_Q_Add_Message_t)0x202C70)
+
+typedef s64(*CZSealBody_TeleportTo_t)(CZSealBody* seal, const Matrix4x4* matrix);
+#define CZSealBody_TeleportTo ((CZSealBody_TeleportTo_t)0x2537D0)
 
 // ------------------------------------------------------------
 // Constants
