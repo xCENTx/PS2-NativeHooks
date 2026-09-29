@@ -303,6 +303,37 @@ void DrawMenuRect(float x, float y, float w, float h, Vec4 color)
     NativeMenuTriangle97205(&t, 0);
 }
 
+/* Temporary retail input diagnostics; persistent values must use patch=0. */
+static struct {
+    u32 ticks, pad, hud, raw, select_state, held, pressed, toggles, after;
+} menu_diag __attribute__((section(".menu_state"))) = {0};
+
+static void MenuDiagnosticLine(const char *label, u32 value, float y)
+{
+    char line[48];
+    const char *hex = "0123456789ABCDEF";
+    unsigned n = 0, i;
+    while (*label && n < 36) line[n++] = *label++;
+    for (i = 0; i < 8; ++i)
+        line[n++] = hex[(value >> (28 - i * 4)) & 15];
+    line[n] = 0;
+    DrawText(line, 32, y, 0.6f, (Vec4){255,255,0,128});
+}
+
+static void MenuDrawDiagnostics(void)
+{
+    MenuDiagnosticLine("INPUT TICKS ", menu_diag.ticks, 42);
+    MenuDiagnosticLine("PAD ", menu_diag.pad, 62);
+    MenuDiagnosticLine("HUD ", menu_diag.hud, 82);
+    MenuDiagnosticLine("RAW BUTTONS ", menu_diag.raw, 102);
+    MenuDiagnosticLine("SELECT STATE ", menu_diag.select_state, 122);
+    MenuDiagnosticLine("HELD ", menu_diag.held, 142);
+    MenuDiagnosticLine("PRESS EDGES ", menu_diag.pressed, 162);
+    MenuDiagnosticLine("SELECT EDGES ", menu_diag.toggles, 182);
+    MenuDiagnosticLine("OPEN AFTER INPUT ", menu_diag.after, 202);
+    MenuDiagnosticLine("OPEN AT DRAW ", g_menu.open, 222);
+}
+
 void MenuFrame97205(void)
 {
     u32 hud = *(volatile u32 *)gHud;
@@ -312,40 +343,57 @@ void MenuFrame97205(void)
     font = *(volatile u32 *)(u64)(hud + 0x288);
     if (!font || !*(volatile u32 *)(u64)(font + 0x10)) return;
     MenuDraw();
+    MenuDrawDiagnostics();
 }
 
 /* Runs after CInput::Tick and before the world's pause/scheduler decision. */
 void MenuInput97205(void)
 {
     u32 hud = *(volatile u32 *)gHud;
-    u32 pad = ((volatile u32 *)g_CInput_pads)[4]; // debug 0x00474e30;
-    u32 app = *(volatile u32 *)gAppCamera; // debug 0x00475908;
-    u32 body = app ? *(volatile u32 *)(u64)(app + 0x3c) : 0;
-    u32 controller = body ? *(volatile u32 *)(u64)(body + 0xc0) : 0;
-    volatile u8 *state = controller ? (volatile u8 *)(u64)(controller + 0x221) : 0;
-    unsigned held = 0, i, was_open;
+    u32 pad = ((volatile u32 *)g_CInput_pads)[4];
+    unsigned held = 0;
+    unsigned i;
+    unsigned was_open;
+
     MenuEnsureInitialized();
+
+    ++menu_diag.ticks;
+    menu_diag.pad = pad;
+    menu_diag.hud = hud;
+    menu_diag.raw = pad ? *(volatile u32 *)(u64)(pad + 0xE8) : 0;
+    menu_diag.select_state = pad ? *(volatile u8 *)(u64)(pad + 0x20) : 0;
+    menu_diag.held = menu_diag.pressed = menu_diag.after = 0;
+
     if (!hud || !pad) {
         g_menu.open = 0;
-        MenuPauseState(controller, state, 0);
-        g_menu.previous = g_menu.release_mask = 0;
+        g_menu.previous = 0;
+        g_menu.release_mask = 0;
         return;
     }
-    {
-        for (i = 0; i < 16; ++i) {
-            u8 key = *(volatile u8 *)(u64)(pad + 0x13 + i);
-            /* KEY_FALLING=1 (new press), KEY_DOWN=2, KEY_RISING=3 (release). */
-            if (key == 1 || key == 2) held |= 1u << i;
-        }
+
+    /* Snapshot processed buttons before suppressing gameplay input. */
+    for (i = 0; i < 16; ++i) {
+        u8 key = *(volatile u8 *)(u64)(pad + 0x13 + i);
+
+        if (key == 1 || key == 2)
+            held |= 1u << i;
     }
+
+    menu_diag.held = held;
+    menu_diag.pressed = held & ~g_menu.previous;
+    if (menu_diag.pressed & MENU_SELECT) ++menu_diag.toggles;
     was_open = g_menu.open;
     MenuUpdate(held);
-    MenuPauseState(controller, state, 0);
-    if (was_open || g_menu.open) g_menu.release_mask = held;
-    else g_menu.release_mask &= held;
-    if (was_open || g_menu.open || g_menu.release_mask) {
+    menu_diag.after = g_menu.open;
+
+    /* Consume held buttons until released after closing the menu. */
+    if (was_open || g_menu.open)
+        g_menu.release_mask = held;
+    else
+        g_menu.release_mask &= held;
+
+    if (was_open || g_menu.open || g_menu.release_mask)
         MenuSuppressPad((volatile u8 *)(u64)pad);
-    }
 }
 
 /* 3. Input, persistent state and native pause */
@@ -354,8 +402,12 @@ void MenuSuppressPad(volatile u8 *pad)
 {
     unsigned i;
 
-    for (i = 0; i < 16; ++i)
+    for (i = 0; i < 16; ++i) {
         pad[0x13 + i] = 0;
+
+        /* Retail per-button input value. */
+        *(volatile float *)(pad + 0x24 + i * 4) = 0.0f;
+    }
 
     for (i = 0; i < 4; ++i) {
         *(volatile float *)(pad + 0x114 + i * 4) = 0.0f;

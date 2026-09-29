@@ -48,20 +48,14 @@ int UI_Combo(UIContext *ui, u32 id, const char *label, unsigned *value,
 int UI_Button(UIContext *ui, u32 id, const char *label, float scale);
 
 //  /* Exact PAD_BUTTON values from SCUS_972.05 .debug. */
-//  enum {
-//      MENU_SELECT = 1u << 1, MENU_RIGHT = 1u << 2,
-//      MENU_LEFT = 1u << 3, MENU_UP = 1u << 4, MENU_DOWN = 1u << 5,
-//      MENU_CIRCLE = 1u << 7, MENU_CROSS = 1u << 9
-//  };
-/* Retail SCUS_971.34 PAD_BUTTON indices. */
 enum {
-    MENU_SELECT = 1u << 13,
-    MENU_RIGHT  = 1u << 7,
-    MENU_LEFT   = 1u << 8,
-    MENU_UP     = 1u << 6,
-    MENU_DOWN   = 1u << 9,
-    MENU_CIRCLE = 1u << 2,
-    MENU_CROSS  = 1u << 5
+    MENU_SELECT = 1u << 1, 
+    MENU_RIGHT = 1u << 2,
+    MENU_LEFT = 1u << 3, 
+    MENU_UP = 1u << 4, 
+    MENU_DOWN = 1u << 5,
+    MENU_CIRCLE = 1u << 7, 
+    MENU_CROSS = 1u << 9
 };
 typedef struct {
     unsigned open, scale_index, accent_index, previous, page;
