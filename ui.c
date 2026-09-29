@@ -338,13 +338,6 @@ void MenuInput97205(void)
             if (key == 1 || key == 2) held |= 1u << i;
         }
     }
-    /* Let the native pause UI retain ownership if it is already active. */
-    if (*(volatile u8 *)(u64)(hud + 0x14038)) {
-        MenuPauseState(controller, state, 1);
-        g_menu.previous = held;
-        g_menu.release_mask = 0;
-        return;
-    }
     was_open = g_menu.open;
     MenuUpdate(held);
     MenuPauseState(controller, state, 0);
@@ -360,18 +353,13 @@ void MenuInput97205(void)
 void MenuSuppressPad(volatile u8 *pad)
 {
     unsigned i;
-    /* Consume processed controls after the menu's snapshot. Do not clear
-     * cached m_Data at +A8: CPad::Tick does not poll hardware every tick.
-     * Its next UpdateButton pass needs that cached held-button mask. */
-    for (i = 0; i < 16; ++i) {
+
+    for (i = 0; i < 16; ++i)
         pad[0x13 + i] = 0;
-        pad[0x23 + i] = 0;
-        pad[0x33 + i] = 0;
-        *(volatile float *)(pad + 0x44 + i * 4) = -3.0f;
-    }
+
     for (i = 0; i < 4; ++i) {
-        *(volatile float *)(pad + 0xd4 + i * 4) = 0.0f;
-        *(volatile float *)(pad + 0xe8 + i * 4) = 0.0f;
+        *(volatile float *)(pad + 0x114 + i * 4) = 0.0f;
+        *(volatile float *)(pad + 0x128 + i * 4) = 0.0f;
     }
 }
 
