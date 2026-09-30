@@ -97,12 +97,18 @@ typedef struct CZSealBody CZSealBody;
 #define SEAL_AM_STUNNED              	(1u << 4)   // 0x00000010
 #define SEAL_IS_ZOOMING              	(1u << 5)   // 0x00000020
 
+
+// ------------------------------------------------------------
+// 
+// ------------------------------------------------------------
+#define ENTITY_TEAM_SEAL_ABLE = 0x84000006
+#define ENTITY_TEAM_SEAL_BRAVO = 0x8400000A
+
 // ------------------------------------------------------------
 // Enums
 // ------------------------------------------------------------
 
 typedef s8 RDR_COMMAND;
-
 enum
 {
 	RDR_AFTER_ERROR_REBOOT,
@@ -119,14 +125,12 @@ enum
 };
 
 typedef s8 LAUNCH_COMMAND;
-
 enum
 {
     LAUNCH_CMD_m,   // main
 };
 
 typedef s8 LAUNCH_FLAG;
-
 enum
 {
     LAUNCH_FLAGS_NONE
@@ -157,7 +161,6 @@ enum
 };
 
 typedef s8 FT_COMMAND;
-
 enum
 {
 	unknown = 0,
@@ -166,12 +169,11 @@ enum
 	FT_FIRE_AT_WILL = 3
 };
 
-typedef s8 FT_FIRETEAM;
-
+typedef s8 FIRETEAM;
 enum
 {
 	FT_MP_PLAYER = 0,
-	FT_FIRETEAM_ = 1,
+	FT_FIRETEAM = 1,
 	FT_ALPHA = 2,
 	FT_BRAVO = 3,
 	FT_USER = 4,
@@ -189,7 +191,6 @@ enum
 };
 
 typedef s8 FT_BONE;
-
 enum
 {
     FT_BONE_MIN = 0,
@@ -279,6 +280,37 @@ enum
 	GRENADE_STATE_DETONATE,
 	GRENADE_STATE_REMOVE
 };
+
+typedef s8 NODE_TYPE;
+enum
+{
+	NODE_EMPTY,
+	NODE_GENERIC,
+	NODE_INSTANCE,
+	NODE_CHILD,
+	NODE_MULTI_PARENT,
+	NODE_UNK5,
+	NODE_GRID,
+	NODE_MODEL,
+	NODE_LIGHT,
+	NODE_LENSFLARE,
+	NODE_CELL
+};
+		
+
+typedef s8 ENTITY_TYPE;
+enum
+{
+	ENTITY_UNKNOWN,
+	ENTITY_RECYCLE,
+	ENTITY_SEAL,
+	ENTITY_TURRET
+};
+
+// ------------------------------------------------------------
+// Macros
+// ------------------------------------------------------------
+#define FIRETEAM_MASK(team) (1u << (team))
 
 // ------------------------------------------------------------
 // Math
@@ -631,7 +663,7 @@ typedef struct
 	s32 unk0000; //0x0000
 	u32* pInterface; //0x0004
 	char pad_0008[48]; //0x0008
-	s32 state38; //0x0038
+	u32 mTeam; //0x0038 : FIRETEAM
 } CSealUnit; //Size: 0x003C
 static_assert(sizeof(CSealUnit) == 0x3C);
 
@@ -680,7 +712,7 @@ typedef struct
 	char pad_0025[3]; //0x0025
 	s32 itemCount[3]; //0x0028
 	s32 selection[3]; //0x0034
-	FT_FIRETEAM selectedTeamType; //0x0040
+	FIRETEAM selectedTeamType; //0x0040
 	char pad_0041[3]; //0x0041
 	CSubMenu* pSelectedSubMenu; //0x0044
 	CMD_TABLE* pCommand; //0x0048
@@ -708,7 +740,8 @@ struct __attribute__((packed)) CNode
 {
     Matrix4x4 m_mtx; //0x0000
 	AABB m_bounds; //0x0040
-	s32 mType; //0x0058
+	NODE_TYPE m_type; //0x0058
+	char pad_0059[3]; //0x0059
 	u32 mBits; //0x005C
 	char pad_0060[4]; //0x0060
 	CNode* pParent; //0x0064
@@ -914,7 +947,7 @@ static_assert(sizeof(CTarget) == 0x28, "Size of CTarget is not correct.");
 typedef struct
 {
 	char pad_0000[16]; //0x0000
-	char mEntityType; //0x0010
+	ENTITY_TYPE mEntityType; //0x0010
 	char pad_0011[3]; //0x0011
 	char* p_Name; //0x0014
 	u32 m_UnitsSeenBy; //0x0018
@@ -929,7 +962,7 @@ typedef struct
 	Vec4 m_NextQuat; //0x0070
 	Matrix4x4 m_Matrix; //0x0080
 	CZSealCtrl* p_SealCtrl; //0x00C0 // CZSealCtrl*
-	s32 m_TeamID; //0x00C4
+	s32 m_TeamMask; //0x00C4
 	f32 m_MaxTargetRange; //0x00C8
 	s32 mM_axTargetCount; //0x00CC
 	s32 m_TargetCount; //0x00D0

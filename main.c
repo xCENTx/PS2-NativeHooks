@@ -661,23 +661,77 @@ static bool IsAlive(CZSealBody* seal)
     return seal && (seal->m_ent.m_EntityBits & ENTITY_IS_ALIVE);
 }
 
-static bool RespawnLocalPlayer()
+static bool IsCharacter(CEntity* entity)
 {
-
-    CZSealBody* seal = ftsGetPlayer();
-    if (!seal || IsAlive(seal))
+    if (!entity)
         return false;
 
-    CAppCamera* camera = (CAppCamera*)gAppCamera;
-    if (!camera)
+    CNode* node = entity->p_Node;
+    
+    return node 
+        && (node->mBits & CNODE_CHARACTER) != 0 
+        && entity->mEntityType == ENTITY_SEAL;
+}
+
+static bool IsAlphaUnit(CZSealBody* seal)
+{
+    u32 mask = seal->m_ent.m_TeamMask;
+
+    return (mask & FIRETEAM_MASK(FT_FIRETEAM)) &&
+           (mask & FIRETEAM_MASK(FT_ALPHA));
+}
+
+static bool IsBravoUnit(CZSealBody* seal)
+{
+    u32 mask = seal->m_ent.m_TeamMask;
+
+    return (mask & FIRETEAM_MASK(FT_FIRETEAM)) &&
+           (mask & FIRETEAM_MASK(FT_BRAVO));
+}
+
+static bool IsSealTeamUnit(CZSealBody* seal)
+{
+    u32 mask = seal->m_ent.m_TeamMask;
+
+    return (mask & FIRETEAM_MASK(FT_FIRETEAM)) && (mask & (FIRETEAM_MASK(FT_ALPHA) | FIRETEAM_MASK(FT_BRAVO)));
+}
+
+static bool SealJoinFireteam(CZSealBody* seal, u32 team)
+{
+    if (!seal || !seal->m_ent.p_SealCtrl)
         return false;
+
+    CSealUnit* unit = CSealUnit_GetUnitByTeam(team);
+
+    if (!unit)
+        return false;
+
+    // Already attached to this CSealUnit.
+    if (seal->m_ent.p_SealCtrl->p_unit == unit)
+        return true;
+
+    // Add the game's fireteam + requested team memberships.
+    CEntity_JoinTeam(&seal->m_ent, FT_FIRETEAM);
+    CEntity_JoinTeam(&seal->m_ent, team);
+
+    // Move the character into the actual CSealUnit.
+    CSealUnit_SealJoinUnit(unit, seal);
+
+    return seal->m_ent.p_SealCtrl->p_unit == unit;
+}
+
+static bool RespawnSeal(CZSealBody* seal)
+{
+    if (!seal 
+        || IsAlive(seal) == true 
+        || IsCharacter(&seal->m_ent) == false
+    )
+    {
+        return false;
+    }
 
     // Request native respawn.
     seal->m_should_respawn = true;
-
-    // Restore camera ownership/state.
-    camera->pAttachedPlayer = seal;
-    camera->mCamDeathState = 0;
 
     // Force CHUD through its menu-state cleanup transition.
     if (seal->m_ent.p_SealCtrl)
@@ -685,6 +739,22 @@ static bool RespawnLocalPlayer()
         seal->m_ent.p_SealCtrl->m_menu_state = MENU_STATE_ORDERS;
         seal->m_ent.p_SealCtrl->m_menu_state = MENU_STATE_NONE;
     }
+}
+
+static bool RespawnLocalPlayer()
+{
+    CZSealBody* seal = ftsGetPlayer();
+    CAppCamera* camera = (CAppCamera*)gAppCamera;
+    if (!seal || !camera || IsAlive(seal))
+        return false;
+
+    if (RespawnSeal(seal) == false)
+        return false;
+
+
+    // Restore camera ownership/state.
+    camera->pAttachedPlayer = seal;
+    camera->mCamDeathState = 0;
 
     return true;
 }
@@ -1601,9 +1671,8 @@ static void spDrawSkeleton(CZSealBody* seal)
 }
 
 
-
 // ------------------------------------------------------------
-// Menu
+// Patcher
 // ------------------------------------------------------------
 typedef s8 CHEAT_FEATURES;
 enum
@@ -1618,18 +1687,236 @@ enum
     CHEAT_FPS,
     CHEAT_FOG,
     CHEAT_AI_FRIENDLY,
-    CHEAT_AI_ENEMY,
+    CHEAT_AI_FFA,
     CHEAT_AI_RESPAWNS,
-    CHEAT_AI_VISION,
-    CHEAT_GHOST,
+    CHEAT_AI_VISION,                
+    CHEAT_MATCH_RESPAWN_PLAYER,         // 
+    CHEAT_MATCH_FORCE_START,            // 
+    CHEAT_MATCH_NEVER_ENDS,             // 
+    CHEAT_MATCH_RESPAWN_MODE,           // 
+    CHEAT_MATCH_AUTO_COMPLETE,        //    
     CHEAT_MAX
 };
+
+typedef struct
+{
+    bool enabled;
+    bool applied;
+} CheatState;
+
+typedef bool (*PatchFn_t)(void);
+
 __attribute__((section(".cheats")))
-static bool m_featureset[CHEAT_MAX] = { false };
+static CheatState m_featureset[CHEAT_MAX] = { 0 };
+
+static inline bool CheatStateChanged(const CheatState* cheat)
+{ return cheat->enabled != cheat->applied; }
+
+static inline void CheatStateApplied(CheatState* cheat)
+{ cheat->applied = cheat->enabled; }
+
+static inline void CheatStateUpdate(CheatState* cheat, PatchFn_t enable, PatchFn_t disable)
+{
+    if (CheatStateChanged(cheat) == false)
+        return;
+
+    bool success;
+    if (cheat->enabled)
+        success = enable();
+    else
+        success = disable();
+
+    if (success)
+        CheatStateApplied(cheat);
+}
+
+static inline void Patch_FlushCache(void)
+{
+    FlushCache(0); // D-cache writeback
+    FlushCache(2); // I-cache invalidate
+}
+
+static inline u8 Patch_ReadU8(u32 address)
+{
+    return *(volatile u8*)address;
+}
+
+static inline u16 Patch_ReadU16(u32 address)
+{
+    return *(volatile u16*)address;
+}
+
+static inline u32 Patch_ReadU32(u32 address)
+{
+    return *(volatile u32*)address;
+}
+
+static inline f32 Patch_ReadFloat(u32 address)
+{
+    return *(volatile f32*)address;
+}
+
+static inline void Patch_U8(u32 address, u8 value)
+{
+    *(volatile u8*)address = value;
+}
+
+static inline void Patch_U16(u32 address, u16 value)
+{
+    *(volatile u16*)address = value;
+}
+
+static inline void Patch_U32(u32 address, u32 value)
+{
+    *(volatile u32*)address = value;
+}
+
+static inline void Patch_Float(u32 address, f32 value)
+{
+    *(volatile f32*)address = value;
+}
+
+static inline void Patch_Instruction(u32 address, u32 instruction)
+{
+    Patch_U32(address, instruction);
+
+    Patch_FlushCache();
+}
+
+static inline bool Patch_InstructionChecked(u32 address, u32 expected, u32 replacement)
+{
+    if (Patch_ReadU32(address) != expected)
+        return false;
+
+    Patch_U32(address, replacement);
+
+    Patch_FlushCache();
+
+    return true;
+}
+
+static inline void Patch_Instructions(u32 address, const u32* instructions, u32 count)
+{
+    volatile u32* dst = (volatile u32*)address;
+
+    for (u32 i = 0; i < count; i++)
+        dst[i] = instructions[i];
+
+    Patch_FlushCache();
+}
+
+static inline void Patch_NOP(u32 address)
+{
+    Patch_Instruction(address, 0x00000000u);
+}
+
+static inline void Patch_J(u32 address, u32 target)
+{
+    u32 instruction = 0x08000000u | ((target >> 2) & 0x03FFFFFFu);
+    Patch_Instruction(address, instruction);
+}
+
+static inline void Patch_JAL(u32 address, u32 target)
+{
+    u32 instruction = 0x0C000000u | ((target >> 2) & 0x03FFFFFFu);
+    Patch_Instruction(address, instruction);
+}
+
+bool Patch_ForceCompleteMission_enable(void)
+{
+    return Patch_InstructionChecked(
+        fn_MissionTick_BEQ_MISSION_SUCCESS, 
+        AUTO_COMPLETE_ORIGINAL,        
+        AUTO_COMPLETE_PATCHED
+    );
+}
+
+bool Patch_ForceCompleteMission_disable(void)
+{
+    return Patch_InstructionChecked(
+        fn_MissionTick_BEQ_MISSION_SUCCESS, 
+        AUTO_COMPLETE_PATCHED, 
+        AUTO_COMPLETE_ORIGINAL
+    );
+}
+
+
+bool Patch_ForceStart_enable(void)
+{
+    return Patch_InstructionChecked(
+        fn_ToggleReady_JR_RA_FORCE_START,
+        FORCE_START_ORIGINAL,
+        FORCE_START_PATCHED
+    );
+}
+
+bool Patch_ForceStart_disable(void)
+{
+    return Patch_InstructionChecked(
+        fn_ToggleReady_JR_RA_FORCE_START,
+        FORCE_START_PATCHED,
+        FORCE_START_ORIGINAL
+    );
+}
+
+
+bool Patch_NeverEnd_enable(void)
+{
+    return Patch_InstructionChecked(
+        fn_MissionTick_JAL_MP_ROUND_END,
+        NEVER_END_ORIGINAL,
+        NEVER_END_PATCHED
+    );
+}
+
+bool Patch_NeverEnd_disable(void)
+{
+    return Patch_InstructionChecked(
+        fn_MissionTick_JAL_MP_ROUND_END,
+        NEVER_END_PATCHED,
+        NEVER_END_ORIGINAL
+    );
+}
+
+void Patches_Tick(void)
+{
+    // Auto Complete Missions Patch
+    CZSealBody* seal = ftsGetPlayer();
+
+    if (!seal)
+    { 
+        // disable so we dont get stuck in endless mission complete
+         m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled = false;
+    }
+
+    CheatStateUpdate(
+        &m_featureset[CHEAT_MATCH_AUTO_COMPLETE],
+        Patch_ForceCompleteMission_enable,
+        Patch_ForceCompleteMission_disable
+    );
+    
+    // Force Start Match Patch
+    CheatStateUpdate(
+        &m_featureset[CHEAT_MATCH_FORCE_START],
+        Patch_ForceStart_enable,
+        Patch_ForceStart_disable
+    );
+
+    // Never Ending Match Patch
+    CheatStateUpdate(
+        &m_featureset[CHEAT_MATCH_NEVER_ENDS],
+        Patch_NeverEnd_enable,
+        Patch_NeverEnd_disable
+    );
+}
+
+// ------------------------------------------------------------
+// Menu
+// ------------------------------------------------------------
 static const f32 menu_scales[] = {0.65f, 0.8f, 1.0f};
 static const char* const menu_sizes[] = {"SMALL", "MEDIUM", "LARGE"};
 static const char* const menu_colors[] = {"CYAN", "AMBER", "GREEN"};
-static const char* const menu_pages[] = {"FEATURES", "DISPLAY"};
+static const char* const menu_pages[] = {"FEATURES", "NET MATCH", "MISSION", "SETTINGS"};
 static const Vec4 menu_accents[] = {{65, 210, 235, 128}, {255, 195, 65, 128}, {24, 180, 40, 128}};
 void MenuBuild(u32 pass, u32 pressed)
 {
@@ -1654,31 +1941,86 @@ void MenuBuild(u32 pass, u32 pressed)
     style.accent = menu_accents[g_menu.accent_index];
     UI_BeginWindow(&ui, &g_menu.ui[page], &layout, &style, pass, pressed);
     UI_Text(&ui, "SOCOM - NATIVE MENU", 1.0f, style.text);
-    UI_Text(&ui, "SCUS 972.05", 0.65f, style.muted);
+    UI_Text(&ui, "SCUS 971.34", 0.65f, style.muted);
     UI_Spacing(&ui, 10);
-    UI_Combo(&ui, 100, "PAGE", &g_menu.page, menu_pages, 2, scale);
-    if (page == 0)
+    UI_Combo(&ui, 100, "PAGE", &g_menu.page, menu_pages, MENU_PAGE_COUNT, scale);
+
+    switch ( page )
     {
-        UI_Checkbox(&ui, 1, "ESP", &m_featureset[CHEAT_ESP], scale);
-        UI_Checkbox(&ui, 2, "INFINITE AMMO", &m_featureset[CHEAT_INFINITE_AMMO], scale);
-        UI_Checkbox(&ui, 3, "NO RELOAD", &m_featureset[CHEAT_NO_RELOAD], scale);
-        UI_Checkbox(&ui, 4, "PERFECT SHOT", &m_featureset[CHEAT_PERFECT_SHOT], scale);
-        UI_Checkbox(&ui, 5, "AIMBOT", &m_featureset[CHEAT_AIMBOT], scale);
-        UI_Checkbox(&ui, 6, "TELEPORT TO CROSSHAIR", &m_featureset[CHEAT_TELEPORT_TO_XHAIR], scale);
-    }
-    else
-    {
-        UI_Checkbox(&ui, 101, "WATERMARK", &g_menu.watermark, scale);
-        UI_Combo(&ui, 102, "TEXT SIZE", &g_menu.scale_index, menu_sizes, 3, scale);
-        UI_Combo(&ui, 103, "ACCENT COLOR", &g_menu.accent_index, menu_colors, 3, scale);
-        if (UI_Button(&ui, 104, "RESET DISPLAY", scale))
+        case MENU_PAGE_FEATURES:
         {
-            g_menu.watermark = true;
-            g_menu.scale_index = 1;
-            g_menu.accent_index = 1;
+            UI_Separator(&ui, 1.0f, 6.0f, style.muted);
+            UI_Checkbox(&ui, 1, "ESP", &m_featureset[CHEAT_ESP].enabled, scale);
+            UI_Checkbox(&ui, 2, "INFINITE AMMO", &m_featureset[CHEAT_INFINITE_AMMO].enabled, scale);
+            UI_Checkbox(&ui, 3, "NO RELOAD", &m_featureset[CHEAT_NO_RELOAD].enabled, scale);
+            UI_Checkbox(&ui, 4, "PERFECT SHOT", &m_featureset[CHEAT_PERFECT_SHOT].enabled, scale);
+            UI_Checkbox(&ui, 5, "AIMBOT", &m_featureset[CHEAT_AIMBOT].enabled, scale);
+            UI_Checkbox(&ui, 6, "TELEPORT TO CROSSHAIR", &m_featureset[CHEAT_TELEPORT_TO_XHAIR].enabled, scale);
+            break;
+        }
+
+        case MENU_PAGE_NET_MATCH:
+        {
+            UI_SeparatorText(&ui, "LOBBY", 0.65f, style.muted);
+
+            if (UI_Checkbox(&ui, 201, "[H] FORCE START MATCH", &m_featureset[CHEAT_MATCH_FORCE_START].enabled, scale));
+
+            UI_SeparatorText(&ui, "IN GAME", 0.65f, style.muted);
+
+            UI_Checkbox(&ui, 202, "[H] MATCH NEVER ENDS", &m_featureset[CHEAT_MATCH_NEVER_ENDS].enabled, scale);
+
+            UI_Checkbox(&ui, 203, "[H] RESPAWN MATCH", &m_featureset[CHEAT_MATCH_RESPAWN_MODE].enabled, scale);
+
+            break;
+        }
+
+        case MENU_PAGE_MISSION:
+        {
+            UI_Separator(&ui, 1.0f, 6.0f, style.muted);
+
+            // 
+            if (UI_Button(&ui, 301, "RESPAWN LOCAL PLAYER", scale)) 
+            { 
+                m_featureset[CHEAT_MATCH_RESPAWN_PLAYER].enabled  = true;
+            }
+
+            // 
+            UI_Checkbox(&ui, 302, "AUTO COMPLETE MISSION", &m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled, scale);
+
+            // ai entities assigned a unique team
+            UI_Checkbox(&ui, 303, "FREE FOR ALL", &m_featureset[CHEAT_AI_FFA].enabled, scale);          
+
+            // assigns all ai to a seal unit for control
+            UI_Checkbox(&ui, 304, "AI FRIENDLY", &m_featureset[CHEAT_AI_FRIENDLY].enabled, scale);      
+            
+            // ai respawns on death
+            UI_Checkbox(&ui, 305, "AI RESPAWNS", &m_featureset[CHEAT_AI_RESPAWNS].enabled, scale);      
+
+            // render ai pathing and  ( draws a cone on the ground from feet to vision distance , line for pathing and circle around for hearing distance ? )   
+            UI_Checkbox(&ui, 306, "AI VISION", &m_featureset[CHEAT_AI_VISION].enabled, scale);  
+
+            break;
+        }
+
+        case MENU_PAGE_SETTINGS:
+        {
+            UI_Separator(&ui, 1.0f, 6.0f, style.muted);
+            UI_Checkbox(&ui, 401, "WATERMARK", &g_menu.watermark, scale);
+            UI_Combo(&ui, 402, "TEXT SIZE", &g_menu.scale_index, menu_sizes, 3, scale);
+            UI_Combo(&ui, 403, "ACCENT COLOR", &g_menu.accent_index, menu_colors, 3, scale);
+            if (UI_Button(&ui, 404, "RESET DISPLAY", scale))
+            {
+                g_menu.watermark = true;
+                g_menu.scale_index = 1;
+                g_menu.accent_index = 1;
+            }
+
+            break;
         }
     }
+
     UI_Spacing(&ui, 8);
+    UI_Separator(&ui, 1.0f, 6.0f, style.muted);
     UI_Text(&ui, "D-PAD: MOVE / CHANGE    CROSS: SELECT", 0.6f, style.muted);
     UI_Spacing(&ui, 6);
     UI_Text(&ui, "L3 + R3: TOGGLE    CIRCLE: CLOSE", 0.6f, style.muted);
@@ -1713,12 +2055,14 @@ typedef struct
     CZSealBody* target;
     f32 bestTargetDistSq;
 } ctxPlayerESP;
-static void ProcessPlayerESP(void* obj, void* ctx)
+static void ProcessPlayers(void* obj, void* ctx)
 {
     CZSealBody* entity;
     ctxPlayerESP* esp;
     CNode* pNode;
     bool isSealTeam;
+    bool isAlive;
+    bool isCharacter;
     f32 dx;
     f32 dy;
     f32 aimDistSq;
@@ -1734,18 +2078,43 @@ static void ProcessPlayerESP(void* obj, void* ctx)
 
     pNode = (CNode*)entity->m_ent.p_Node;
 
-    if (pNode == 0 || CNode_Rendered(pNode) == 0)
+    if (pNode == 0)
         return;
 
-    isSealTeam = entity->m_ent.m_TeamID == 0x84000006 || entity->m_ent.m_TeamID == 0x8400000A;
+    isAlive = IsAlive(entity);
+    isCharacter = IsCharacter(&entity->m_ent);
+    isSealTeam = IsSealTeamUnit(entity);
 
-    if (isSealTeam || entity->m_ent.m_TeamID == esp->seal->m_ent.m_TeamID || entity->m_health <= 0.0f)
+    //  
+    if ((m_featureset[CHEAT_MATCH_RESPAWN_MODE].enabled  || m_featureset[CHEAT_AI_RESPAWNS].enabled  ) 
+        && isCharacter 
+        && !isAlive
+    )
+    {
+        // need to ensure is host for a FORCE ALL RESPAWN
+        RespawnSeal(entity);
+    }
+
+    //
+    if (m_featureset[CHEAT_AI_FRIENDLY].enabled  
+        && isAlive 
+        && isCharacter
+        && !isSealTeam
+    )
+    {
+        SealJoinFireteam(entity, FT_BRAVO);
+    }
+
+    if (isSealTeam || entity->m_ent.m_TeamMask == esp->seal->m_ent.m_TeamMask || entity->m_health <= 0.0f || CNode_Rendered(pNode) == 0)
         return;
     
-    //  wsDrawBoundingBox(pNode);
-    spDrawSkeleton(entity);
-
-    if (!m_featureset[CHEAT_AIMBOT])
+    if (m_featureset[CHEAT_ESP].enabled  )
+    {
+        //  wsDrawBoundingBox(pNode);
+        spDrawSkeleton(entity);
+    }
+    
+    if (!m_featureset[CHEAT_AIMBOT].enabled  )
         return;
 
     Vec2 screen;
@@ -1804,40 +2173,16 @@ static void ProcessPickupESP(void* obj, void* ctx)
     esp->target = pickup;
 }
 
-
-// ------------------------------------------------------------
-// Native Hook
-// ------------------------------------------------------------
-// CCameraApp::Tick -> CZSealBody::CheckDIShoot
-__attribute__((section(".hook"), noinline))
-void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
+static void ProcessPlayerFeatures(CZSealBody* seal)
 {
-    MenuEnsureInitialized();
-    CheckDIShoot(seal, a2, a3);
-
-    if (seal == 0)
+    if (!seal)
         return;
     
-    // ESP
-    ctxPlayerESP ctxPlayers;
-    ctxPickupESP ctxPickups;
-    if (m_featureset[CHEAT_ESP])
-    {
-        ctxPlayers.seal = seal;
-        ctxPlayers.target = 0;
-        ctxPlayers.bestTargetDistSq = 99999999.0f;
-        ZArray_ForEach((ZArray*)gSealArray, ProcessPlayerESP, &ctxPlayers);
-
-        ctxPickups.seal = seal;
-        ctxPickups.target = 0;
-        ctxPickups.bestTargetDistSq = 99999999.0f;
-        ZArray_ForEach((ZArray*)gPickupArray, ProcessPickupESP, &ctxPickups);
-    }
-
+    CZKit* kit = &seal->m_Kit;
+    
     // infinite ammo
-    if (m_featureset[CHEAT_INFINITE_AMMO])
+    if (m_featureset[CHEAT_INFINITE_AMMO].enabled  )
     {
-        CZKit* kit = &seal->m_Kit;
         for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
         {
             CZWeapon* pWeapon = kit->pWeapons[i];
@@ -1850,14 +2195,16 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
             {
                 case 0:
                 {
-                    for (int j = 0; j < pWeapon->defaultMags; j++)
+                    s32 capacity = (s32)(sizeof(kit->mPrimaryMags) / sizeof(kit->mPrimaryMags[0]));
+                    for (int j = 0; j < pWeapon->defaultMags && j < capacity; j++)
                         kit->mPrimaryMags[j] = newAmmo;
                     break;
                 }
                 
                 case 1:
                 {
-                    for (int j = 0; j < pWeapon->defaultMags; j++)
+                    s32 capacity = (s32)(sizeof(kit->mSecondaryMags) / sizeof(kit->mSecondaryMags[0]));
+                    for (int j = 0; j < pWeapon->defaultMags && j < capacity; j++)
                         kit->mSecondaryMags[j] = newAmmo;
                     break;
                 }
@@ -1868,53 +2215,80 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
             }
         }
     }
-
+    
     // perfect shot
-    if (m_featureset[CHEAT_PERFECT_SHOT])
+    if (m_featureset[CHEAT_PERFECT_SHOT].enabled  )
     {
         seal->m_ShoulderRecoil = 0.0f;
-        
-        CZKit* kit = &seal->m_Kit;
-        kit->mRecoilPunch = (Vec2){ 0.0f, 0.0f };
-        kit->mPrevRecoilPunch = (Vec2){ 0.0f, 0.0f };
-        kit->mRifleKick = (Vec3){ 0.0f, 0.0f, 0.0f };
+
+        kit->mRecoilPunch = (Vec2){ 0.0f, 0.0f }; // remove recoil punch 
+        kit->mPrevRecoilPunch = (Vec2){ 0.0f, 0.0f }; // remove recoil offset
+        kit->mRifleKick = (Vec3){ 0.0f, 0.0f, 0.0f }; // remove kick offset
+        kit->mScreenOffset = (Vec2){ 0.0f, 0.0f }; // maintains scope 0
+        kit->mHeartbeatState = 0; // prevents the heartbeat state from simulating
+        kit->mHeartbeat = (Vec2){ 0.0f, 0.0f }; // removes heartbeat vibrations and sound
+        kit->mFireRifleKickState = 0; // prevents the kick state from incrementing
+        kit->mWeaponFireCount = 0; // allows full auto fire in scope , wont get kicked to fps view. if set to 0 it allows full auto fire for all weapons
+        // missing crosshair bloom
     }
 
     // no reload time / rechamber
-    if (m_featureset[CHEAT_NO_RELOAD])
+    if (m_featureset[CHEAT_NO_RELOAD].enabled  )
     {
-        CZKit* kit = &seal->m_Kit;
         for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
         {
             CZWeapon* pWeapon = kit->pWeapons[i];
             if (!pWeapon)
                 continue;
 
-            pWeapon->bReloadAfterShot = false;
-            pWeapon->mReloadTime = 0.0f;
-
+            pWeapon->bReloadAfterShot = false; // permanent setting
+            pWeapon->mReloadTime = 0.0f; // permanent setting
         }
     }
 
-
-    // teleport to crosshair
-    Vec3 firepoint;
-    if ( m_featureset[CHEAT_TELEPORT_TO_XHAIR]
-        && CZSealBody_GetFirepointPos(seal, &firepoint.x, 0x46B500)
-        && seal->m_AimWorldPos.x != 0.0f && seal->m_AimWorldPos.y != 0.0f && seal->m_AimWorldPos.y != 0.0f
-    )
+    if (m_featureset[CHEAT_MATCH_RESPAWN_PLAYER].enabled  )
     {
-        float start[4] = {firepoint.x, firepoint.y, firepoint.z, 1.f};
-        float end[4] = {seal->m_ReticlePt.x, seal->m_ReticlePt.y, seal->m_ReticlePt.z, 1.f};
-        float color_start[4] = {1.0f, 1.0f, 1.0f, 0.5f};
-        float color_end[4] = {0.0f, 1.0f, 0.0f, 0.5f};
-        RenderLineWorld(start, end, color_start, color_end);
+        m_featureset[CHEAT_MATCH_RESPAWN_PLAYER].enabled  = false;
+        RespawnLocalPlayer();
     }
 
+}
+
+
+// ------------------------------------------------------------
+// Native Hook
+// ------------------------------------------------------------
+// CCameraApp::Tick -> CZSealBody::CheckDIShoot
+__attribute__((section(".hook"), noinline))
+void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
+{
+    MenuEnsureInitialized();
+    CZSealBody_CheckDIShoot(seal, a2, a3);
+    Patches_Tick(); // process patches
+
+    if (seal == 0 || seal != ftsGetPlayer())
+        return;
+
+    ctxPlayerESP ctxPlayers = { 0 };
+    ctxPlayers.seal = seal;
+    ctxPlayers.bestTargetDistSq = 99999999.0f;
+    ZArray_ForEach((ZArray*)gSealArray, ProcessPlayers, &ctxPlayers);
+
+    if (m_featureset[CHEAT_ESP].enabled  )
+    {
+        ctxPickupESP ctxPickups = { 0 };
+        ctxPickups.seal = seal;
+        ctxPickups.bestTargetDistSq = 99999999.0f;
+
+        ZArray_ForEach((ZArray*)gPickupArray, ProcessPickupESP, &ctxPickups);
+    }
+
+    ProcessPlayerFeatures(seal);
+
     // aimbot
-    if (m_featureset[CHEAT_AIMBOT])
+    if (m_featureset[CHEAT_AIMBOT].enabled  )
     {   
-        if (ctxPlayers.target != 0)
+        if (ctxPlayers.target)
         {
             Vec2 screen[2];
             Vec3 targetOrigin[2];
@@ -1947,6 +2321,22 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
         // draw aim fov
         Draw2DCircle(320.f, 224.f, AIM_FOV, 1.0f, (Vec4){1.0f, 1.0f, 1.0f, 1.0f });
     }
+
+
+    // [RENDER] teleport to crosshair destination / valid
+    Vec3 firepoint;
+    bool validAim = seal->m_AimWorldPos.x != 0.0f || seal->m_AimWorldPos.y != 0.0f || seal->m_AimWorldPos.z != 0.0f;
+    if ( m_featureset[CHEAT_TELEPORT_TO_XHAIR].enabled  
+        && validAim
+        && CZSealBody_GetFirepointPos(seal, &firepoint.x, 0x46B500)
+    )
+    {
+        float start[4] = {firepoint.x, firepoint.y, firepoint.z, 1.f};
+        float end[4] = {seal->m_ReticlePt.x, seal->m_ReticlePt.y, seal->m_ReticlePt.z, 1.f};
+        float color_start[4] = {1.0f, 1.0f, 1.0f, 0.5f};
+        float color_end[4] = {0.0f, 1.0f, 0.0f, 0.5f};
+        RenderLineWorld(start, end, color_start, color_end);
+    }
 }
 
 //
@@ -1959,10 +2349,11 @@ void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
     Vec3 firepoint;
     CZSealBody* local_seal = ftsGetPlayer();
     CZSealBody* this_seal = (CZSealBody*)kit->pSealBody;
+    bool validAim = local_seal && (local_seal->m_AimWorldPos.x != 0.0f || local_seal->m_AimWorldPos.y != 0.0f || local_seal->m_AimWorldPos.z != 0.0f);
 
-    if (m_featureset[CHEAT_TELEPORT_TO_XHAIR]
+    if (m_featureset[CHEAT_TELEPORT_TO_XHAIR].enabled  
         && local_seal && local_seal == this_seal 
-        && local_seal->m_AimWorldPos.x != 0.0f && local_seal->m_AimWorldPos.y != 0.0f && local_seal->m_AimWorldPos.y != 0.0f
+        && validAim
         && GetMuzzleWorldLocation(local_seal, &firepoint)
     )
     {
@@ -1975,6 +2366,7 @@ void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
 
         // Teleport
         CZSealBody_TeleportTo(local_seal, &teleport);
+
         Notification("Teleporting to location", 0.0f);
 
         return;

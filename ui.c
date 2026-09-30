@@ -183,6 +183,72 @@ int UI_Button(UIContext* ui, u32 id, const char* label, f32 scale)
     return UI_BeginRow(ui, id, label, scale) && (ui->pressed & UI_ACTIVATE) != 0;
 }
 
+void UI_SeparatorText(UIContext* ui, const char* title, f32 scale, Vec4 color)
+{
+    if (!ui || !title || !(scale > 0.0f && scale <= 64.0f))
+    {
+        return;
+    }
+
+    // Section titles occupy one row, just like ImGui's SeparatorText.
+    for (const char* character = title; *character; ++character)
+    {
+        if (*character == '\n' || *character == '\r')
+        {
+            return;
+        }
+    }
+
+    const f32 spacing = 6.0f;
+    const f32 gap = 8.0f;
+    const f32 leading_line = 12.0f;
+    const f32 thickness = 1.0f;
+    f32 width = ui->content.width * 0.9f;
+    f32 x = ui->content.x + (ui->content.width - width) * 0.5f;
+    f32 height = ui->style.textHeight * scale;
+    f32 center_y = ui->cursorY + spacing + height * 0.5f;
+    f32 text_x = x + leading_line + gap;
+    f32 line_x = text_x + GetTextWidth(title, scale) + gap;
+    f32 line_width = x + width - line_x;
+
+    if (ui->pass == UI_DRAW)
+    {
+        DrawMenuRect(x, center_y - thickness * 0.5f, leading_line, thickness, color);
+        DrawText(title, text_x, center_y + ui->style.baselineOffset * scale, scale, color);
+
+        if (line_width > 0.0f)
+        {
+            DrawMenuRect(line_x, center_y - thickness * 0.5f, line_width, thickness, color);
+        }
+    }
+
+    ui->cursorY += spacing + height + spacing;
+}
+
+void UI_Separator(UIContext* ui, f32 thickness, f32 spacing, Vec4 color)
+{
+    if (thickness <= 0.0f)
+    {
+        return;
+    }
+
+    if (spacing < 0.0f)
+    {
+        spacing = 0.0f;
+    }
+
+    f32 width = ui->content.width * 0.9f;
+    f32 x = ui->content.x + (ui->content.width - width) * 0.5f;
+    f32 y = ui->cursorY + spacing;
+
+    if (ui->pass == UI_DRAW)
+    {
+        DrawMenuRect(x, y, width, thickness, color);
+    }
+
+    ui->cursorY += spacing + thickness + spacing;
+}
+
 /* Coordinates are the square's top-left in native HUD pixels.
  * The unpainted gap lets the existing menu/highlight show through. */
 void DrawCheckbox(f32 x, f32 y, f32 size, int checked, Vec4 color)
@@ -262,6 +328,48 @@ static u32 ReadU32(u32 p)
 static f32 ReadFloat(u32 p)
 {
     return *(volatile f32*)(u64)p;
+}
+
+// Returns the first line's advance in HUD pixels, using MakePacket's rounding.
+f32 GetTextWidth(const char* text, f32 scale)
+{
+    if (!text || !(scale > 0.0f && scale <= 64.0f))
+    {
+        return 0.0f;
+    }
+
+    u32 hud = ReadU32(gHud);
+    u32 font = hud ? ReadU32(hud + 0x288) : 0;
+    if (!font || !ReadU32(font + 0x08) || !ReadU32(font + 0x0C))
+    {
+        return 0.0f;
+    }
+
+    f32 font_scale = ReadFloat(font + 0x2C);
+    if (!(font_scale > 0.0f && font_scale <= 64.0f))
+    {
+        return 0.0f;
+    }
+
+    f32 width = 0.0f;
+    for (; *text && *text != '\n' && *text != '\r'; ++text)
+    {
+        u32 entry = C2DFont_GetEntry(font, (s32)(s8)*text);
+        if (!entry)
+        {
+            continue;
+        }
+
+        f32 glyph_width = (scale * (f32)((s32)ReadU32(entry + 0x08) - 1)) * font_scale + 0.5f;
+        if (!(glyph_width >= 0.0f && glyph_width < 1000000.0f))
+        {
+            return 0.0f;
+        }
+
+        // Glyph dimensions and spacing use sixteenth-pixel units.
+        width += ((f32)(s32)glyph_width + (f32)(s32)ReadU32(entry + 0x10)) / 16.0f;
+    }
+    return width;
 }
 
 static f32 ClampColorChannel(f32 v, f32 limit)
@@ -619,7 +727,7 @@ void MenuEnsureInitialized(void)
     g_menu.open = 0;
     u32 i, j;
     g_menu.page = 0;
-    for (j = 0; j < 2; ++j)
+    for (j = 0; j < MENU_PAGE_COUNT; ++j)
     {
         g_menu.ui[j].focus = 0;
         g_menu.ui[j].count = 0;

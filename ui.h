@@ -68,6 +68,10 @@ void UI_Spacing(UIContext* ui, f32 pixels);
 int UI_Checkbox(UIContext* ui, u32 id, const char* label, bool* value, f32 scale);
 int UI_Combo(UIContext* ui, u32 id, const char* label, u32* value, const char* const* names, u32 count, f32 scale);
 int UI_Button(UIContext* ui, u32 id, const char* label, f32 scale);
+void UI_Separator(UIContext* ui, f32 thickness, f32 spacing, Vec4 color);
+// Single-line title with native glyph advances; no selectable item is added.
+void UI_SeparatorText(UIContext* ui, const char* title, f32 scale, Vec4 color);
+f32 GetTextWidth(const char* text, f32 scale);
 
 // Processed CPad button masks.
 enum
@@ -81,11 +85,19 @@ enum
     MENU_CROSS = 1u << 9,
     MENU_STICK_CLICKS = (1u << 14) | (1u << 15)
 };
+typedef enum
+{
+    MENU_PAGE_FEATURES,
+    MENU_PAGE_NET_MATCH,
+    MENU_PAGE_MISSION,
+    MENU_PAGE_SETTINGS,
+    MENU_PAGE_COUNT
+} MENU_PAGE;
 typedef struct
 {
     u32 open, scale_index, accent_index, previous, page;
     bool watermark;
-    UIState ui[2];
+    UIState ui[MENU_PAGE_COUNT];
     u32 release_mask, magic;
     u32 pause_controller;
     u32 saved_menu_state;
