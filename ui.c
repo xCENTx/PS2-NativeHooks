@@ -273,7 +273,7 @@ static f32 ClampColorChannel(f32 v, f32 limit)
     return v < limit ? v : limit;
 }
 
-void DrawString2D(const char* text, f32 x, f32 y, f32 scale, Vec4 color)
+static void DrawString2DInternal(const char* text, f32 x, f32 y, f32 scale, Vec4 color, bool centered)
 {
     NativeTextPacket packet __attribute__((aligned(16)));
     u32 relocator = g_vft_BatchRelocator; // Same one-word adapter as native Draw.
@@ -331,6 +331,7 @@ void DrawString2D(const char* text, f32 x, f32 y, f32 scale, Vec4 color)
     packet.flags = 0x29; /* constructor flags: on + textured */
     packet.font = font;
     packet.scale = scale;
+    packet.centered = centered ? 1 : 0;
     packet.rgba[0] = ClampColorChannel(color.x, 255.0f);
     packet.rgba[1] = ClampColorChannel(color.y, 255.0f);
     packet.rgba[2] = ClampColorChannel(color.z, 255.0f);
@@ -381,6 +382,17 @@ void DrawString2D(const char* text, f32 x, f32 y, f32 scale, Vec4 color)
         line = next + 1;
         y += line_step;
     }
+}
+
+void DrawString2D(const char* text, f32 x, f32 y, f32 scale, Vec4 color)
+{
+    DrawString2DInternal(text, x, y, scale, color, false);
+}
+
+// Native centering is applied per packet chunk; intended for short HUD labels.
+void DrawTextCentered(const char* text, f32 x, f32 y, f32 scale, Vec4 color)
+{
+    DrawString2DInternal(text, x, y, scale, color, true);
 }
 
 /* Only fields touched by C2DPoly::MakePacket are initialized. */
@@ -619,7 +631,7 @@ void MenuEnsureInitialized(void)
     }
     g_menu.watermark = 1;
     g_menu.scale_index = 1;
-    g_menu.accent_index = 0;
+    g_menu.accent_index = 1;
     g_menu.previous = 0;
     g_menu.release_mask = 0;
     g_menu.pause_controller = 0;
@@ -724,7 +736,12 @@ void MenuUpdate(u32 held)
         MenuBuild(UI_INPUT, 0);
     }
 }
-typedef void (*NativeVoid)(void);
+
+// ------------------------------------------------------------
+// Hooks
+// ------------------------------------------------------------
+
+
 /* Replace existing calls, leaving native function entries untouched.
  * The compiler handles ordinary C calls and returns; no trampoline is needed. */
 __attribute__((section(".hook_menu"), noinline, used)) void MenuHook97205(void)

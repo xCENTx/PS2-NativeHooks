@@ -104,10 +104,10 @@ for address in "$MUTABLE_START" "$MUTABLE_END" "$MENU_DRAW_ADDR" "$MENU_INPUT_AD
     if [ -z "$address" ]; then echo "Error: missing linked menu/state symbol"; exit 1; fi
 done
 MENU_ARGS=(--mutable-range "$MUTABLE_START" "$MUTABLE_END")
-if (( MENU_DRAW_HOOK_ADDR )); then MENU_ARGS+=(--hook "$MENU_DRAW_HOOK_ADDR" "$MENU_DRAW_ADDR"); fi
-if (( MENU_INPUT_HOOK_ADDR )); then MENU_ARGS+=(--hook "$MENU_INPUT_HOOK_ADDR" "$MENU_INPUT_ADDR"); fi
+if (( MENU_DRAW_HOOK_ADDR )); then MENU_ARGS+=(--hook "$MENU_DRAW_HOOK_ADDR" "$MENU_DRAW_ADDR" --restore "$MENU_DRAW_HOOK_ADDR" 0x0C0C7B64); fi
+if (( MENU_INPUT_HOOK_ADDR )); then MENU_ARGS+=(--hook "$MENU_INPUT_HOOK_ADDR" "$MENU_INPUT_ADDR" --restore "$MENU_INPUT_HOOK_ADDR" 0x0C0D4ADC); fi
 for pause_site in "$MENU_PAUSE_HOOK_ADDR" "$MENU_PAUSE_HOOK_ADDR_2" "$MENU_PAUSE_HOOK_ADDR_3"; do
-    if (( pause_site )); then MENU_ARGS+=(--hook "$pause_site" "$MENU_PAUSE_ADDR"); fi
+    if (( pause_site )); then MENU_ARGS+=(--hook "$pause_site" "$MENU_PAUSE_ADDR" --restore "$pause_site" 0x0C0F677C); fi
 done
 if (( ! MENU_DRAW_HOOK_ADDR || ! MENU_INPUT_HOOK_ADDR || ! MENU_PAUSE_HOOK_ADDR || ! MENU_PAUSE_HOOK_ADDR_2 || ! MENU_PAUSE_HOOK_ADDR_3 )); then
     echo "Menu call-site offsets are pending in build.sh; zero entries are not patched."

@@ -31,6 +31,72 @@ typedef struct CZCamera CZCamera;
 typedef struct CZBodyPart CZBodyPart;
 typedef struct CZSealBody CZSealBody;
 
+
+// ------------------------------------------------------------
+// bitmasks
+// ------------------------------------------------------------
+
+// CNode
+#define CNODE_FLATTEN          			(1u << 0)  // 0x0001
+#define CNODE_MODIFIED         			(1u << 1)  // 0x0002
+#define CNODE_CHARACTER        			(1u << 2)  // 0x0004
+#define CNODE_CHARACTER_INFOV  			(1u << 3)  // 0x0008
+
+// CEntity
+#define ENTITY_BLINK_EYES              	(1u << 0)
+#define ENTITY_DRIP_BLOOD              	(1u << 1)
+#define ENTITY_ANIMATE_FOOTSTEPS       	(1u << 2)
+#define ENTITY_INTERPOLATE_ANIMATIONS  	(1u << 3)
+#define ENTITY_LEAN_INTO_TURNS         	(1u << 4)
+#define ENTITY_DO_WEAPON_RECOIL        	(1u << 5)
+#define ENTITY_CHECK_PLAYER_COLLISION  	(1u << 6)
+#define ENTITY_GET_NEW_ALTITUDE        	(1u << 7)
+#define ENTITY_NOSHOOT                 	(1u << 8)
+#define ENTITY_UPDATE_TARGETLIST       	(1u << 9)
+#define ENTITY_INCLUDE_IN_TARGETLIST   	(1u << 10)
+#define ENTITY_IS_ALIVE                	(1u << 11)
+
+// CZSealBody
+#define SEAL_HUD_UPDATE_VIEW_CONE    	(1u << 0)   // 0x00000001
+#define SEAL_HUD_WAS_HIT             	(1u << 1)   // 0x00000002
+#define SEAL_AIM_POINT_VALID         	(1u << 2)   // 0x00000004
+#define SEAL_INVINCIBLE              	(1u << 3)   // 0x00000008
+#define SEAL_INVISIBLE               	(1u << 4)   // 0x00000010
+#define SEAL_INFINITE_AMMO           	(1u << 5)   // 0x00000020
+#define SEAL_DO_POST_TICK            	(1u << 6)   // 0x00000040
+#define SEAL_RESTRAINABLE            	(1u << 7)   // 0x00000080
+#define SEAL_RESTRAINED              	(1u << 8)   // 0x00000100
+#define SEAL_ORDER_FLAG              	(1u << 9)   // 0x00000200
+#define SEAL_LIMP                    	(1u << 10)  // 0x00000400
+#define SEAL_IS_IN_SMOKE             	(1u << 11)  // 0x00000800
+#define SEAL_IS_IN_GAS               	(1u << 12)  // 0x00001000
+#define SEAL_RESPAWNING              	(1u << 13)  // 0x00002000
+#define SEAL_JOINED_UNIT             	(1u << 14)  // 0x00004000
+#define SEAL_SEND_DETAIL             	(1u << 15)  // 0x00008000
+#define SEAL_SNAKE_PATH              	(1u << 16)  // 0x00010000
+#define SEAL_ACTION_CLIMB            	(1u << 17)  // 0x00020000
+#define SEAL_ACTION_JUMP             	(1u << 18)  // 0x00040000
+#define SEAL_IS_MOVING               	(1u << 19)  // 0x00080000
+#define SEAL_IS_TURNING              	(1u << 20)  // 0x00100000
+#define SEAL_AIRBORNE                	(1u << 21)  // 0x00200000
+#define SEAL_JUMPED                  	(1u << 22)  // 0x00400000
+#define SEAL_IN_WATER                	(1u << 23)  // 0x00800000
+#define SEAL_STANCE_CHANGED          	(1u << 24)  // 0x01000000
+#define SEAL_HAVE_AIM_NORM           	(1u << 25)  // 0x02000000
+#define SEAL_WAS_TURNING             	(1u << 26)  // 0x04000000
+#define SEAL_AIMPT_ATTAINABLE        	(1u << 27)  // 0x08000000
+#define SEAL_FIREPT_ATTAINABLE       	(1u << 28)  // 0x10000000
+#define SEAL_USED_VEL_Y              	(1u << 29)  // 0x20000000
+#define SEAL_ECHO_PICKUP             	(1u << 30)  // 0x40000000
+#define SEAL_ANIMATE_ME              	(1u << 31)  // 0x80000000
+
+#define SEAL_DO_DROP_WEAPONS         	(1u << 0)   // 0x00000001
+#define SEAL_FIX_SKEL_Y              	(1u << 1)   // 0x00000002
+#define SEAL_INSIDE                  	(1u << 2)   // 0x00000004
+#define SEAL_PREV_HAVE_AIM_NORM      	(1u << 3)   // 0x00000008
+#define SEAL_AM_STUNNED              	(1u << 4)   // 0x00000010
+#define SEAL_IS_ZOOMING              	(1u << 5)   // 0x00000020
+
 // ------------------------------------------------------------
 // Enums
 // ------------------------------------------------------------
@@ -66,6 +132,29 @@ enum
     LAUNCH_FLAGS_NONE
 };
 
+typedef s8 MENU_STATE;
+enum
+{
+	MENU_STATE_NONE = 0,
+	MENU_STATE_WEAPON_SELECT = 1,
+	MENU_STATE_ORDERS = 2,
+	MENU_STATE_PAUSE_TEST = 3,
+	MENU_STATE_FS_MAP_MENU = 4,
+	MENU_STATE_FS_MAP_ANIM = 5,
+	MENU_STATE_LAST = 6
+
+};
+
+typedef s8 PLAYER_CAM_STATE;
+enum
+{
+	CAM_MODE_UNKNOWN = 0,
+	CAM_MODE_TETHER = 1,
+	CAM_MODE_FP = 2,
+	CAM_MODE_APLOOK = 3,
+	CAM_MODE_NET = 4
+
+};
 
 typedef s8 FT_COMMAND;
 
@@ -242,6 +331,13 @@ typedef struct
 	s32 bottom; //0x000C
 } tag_RECT; //Size: 0x0010
 static_assert(sizeof(tag_RECT) == 0x10, "Size of tag_RECT is not correct.");
+
+typedef struct 
+{
+	float min; //0x0000
+	float range; //0x0004
+} RFloat; //Size: 0x0008
+static_assert(sizeof(RFloat) == 0x8);
 
 // ------------------------------------------------------------
 // Drawing Primitives
@@ -772,6 +868,29 @@ static_assert(sizeof(CPickup) == 0x15, "Size of CPickup is not correct.");
 // ------------------------------------------------------------
 // Seal
 // ------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+	u32 vfTable; //0x0000
+	CZSealBody* p_entity; //0x0004
+	float mThrottle[3]; //0x0008
+	float mLookTimer; //0x0014
+	RFloat m_look_rate; //0x0018
+	char pad_0020[4]; //0x0020
+	Vec3 N00006878; //0x0024
+	Vec3 N000035D9; //0x0030
+	Vec3 N00006879; //0x003C
+	int mLookFlags; //0x0048
+	RFloat m_scan_angles; //0x004C
+	char pad_0054[136]; //0x0054
+	CSealUnit * p_unit; //0x00DC
+	char pad_00E0[320]; //0x00E0
+	PLAYER_CAM_STATE m_cam_state; //0x0220
+	MENU_STATE m_menu_state; //0x0221
+	char pad_0222[24]; //0x0222
+} CZSealCtrl; //Size: 0x023A
+static_assert(sizeof(CZSealCtrl) == 0x23A);
+
 typedef struct __attribute__((packed))
 {
 	CZSealBody* pEntity; //0x0000
@@ -829,7 +948,7 @@ typedef struct __attribute__((packed))
 } SSealStats; //Size: 0x0052
 static_assert(sizeof(SSealStats) == 0x52, "Size of SSealStats is not correct.");
 
-typedef struct
+typedef struct __attribute__((packed))
 {
 	u16 mBitField; //0x0000
 	char pad_0002[22]; //0x0002
@@ -887,7 +1006,7 @@ struct CZSealBody
 	char pad_006C[4]; //0x006C
 	Vec4 mNextQuat; //0x0070
 	Matrix4x4 mMatrix; //0x0080
-	u32 pSealCtrl; //0x00C0 // CZSealCtrl*
+	CZSealCtrl* pSealCtrl; //0x00C0 // CZSealCtrl*
 	s32 mTeamID; //0x00C4
 	f32 mMaxTargetRange; //0x00C8
 	s32 mMaxTargetCount; //0x00CC
@@ -929,7 +1048,9 @@ struct CZSealBody
 	u32 m_killer_weapon_index; //0x0EE0
 	u32 m_lastkiller_id; //0x0EE4
 	u32 m_ClientIndex; //0x0EE8
-	u32 m_vote_tally; //0x0EEC
+	u16 m_vote_tally; //0x0EEC
+	char pad_0EEE[1]; //0x0EEE
+	u8 m_should_respawn;//0x0EEF
 	char pad_0EF0[8]; //0x0EF0
 	f32 m_movespeedmod; //0x0EF8
 	f32 m_encumbmod; //0x0EFC
@@ -943,10 +1064,10 @@ struct CZSealBody
 	Vec2 mLegHealth_L; //0x0F44
 	Vec2 mLegHealth_R; //0x0F4C
 	f32 mArmor[6]; //0x0F54
-	char pad_0F6C[20]; //0x0F6C
-	u32 m_bits_1; //0x0F80
-	u32 m_bits_2; //0x0F84
-	char pad_0F88[344]; //0x0F88
+	char pad_0F6C[24]; //0x0F6C
+	u32 m_bits_1; //0x0F84
+	u32 m_bits_2; //0x0F88
+	char pad_0F88[340]; //0x0F88
 	Vec3 mAimDir; //0x10E0
 	Vec3 mAimGoal; //0x10EC
 	Vec3 mAimPoint; //0x10F8

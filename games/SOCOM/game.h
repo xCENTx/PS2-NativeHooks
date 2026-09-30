@@ -23,6 +23,11 @@
 #define g_vft_BatchRelocator 0x48A520
 #define g_vft_2DString_2 0x48A730
 #define g_CInput_pads 0x48C8D0
+
+#define g_theNetwork_2 0x52A5A9
+#define g_tagFirepoint_default 0x46B500
+#define g_tagFirepoint_203 0x46B4F0
+#define g_net_isHost 0x52A5A8
 // ------------------------------------------------------------
 // Native functions
 // ------------------------------------------------------------
@@ -87,7 +92,7 @@ typedef void(*zSysFifoKick_t)(void* a1, s32 a2);
 typedef bool(*CZSealBody_GetFirepointPos_t)(CZSealBody* a1, float *a2, s64 a3);
 #define CZSealBody_GetFirepointPos ((CZSealBody_GetFirepointPos_t)0x2D1720)
 
-typedef bool(*CZKit_IsLauncherWeapon_t)(CZKit* a1);
+typedef bool(*CZKit_IsLauncherWeapon_t)(CZWeapon* a1);
 #define CZKit_IsLauncherWeapon ((CZKit_IsLauncherWeapon_t)0x32EB90)
 
 typedef bool(*CZKit_WeaponIsGrenadeLauncherMode_t)(CZKit *a1, s64 a2);

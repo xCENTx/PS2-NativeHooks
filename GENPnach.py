@@ -155,7 +155,7 @@ with open(OUTPUT_FILE, "w") as out:
     # Disable
     #
     out.write(
-        "[DEBUG\\ESP\\DISABLE]\n"
+        "[NATIVE-MENU\\DISABLE]\n"
         "author=NightFyre\n"
         "description=\n"
         "patch=1,EE,201EBF20,extended,0C0A9D24\n"
@@ -171,9 +171,9 @@ with open(OUTPUT_FILE, "w") as out:
     # Enable
     #
     out.write(
-        "[DEBUG\\ESP\\ENABLE]\n"
+        "[NATIVE-MENU\\ENABLE]\n"
         "author=NightFyre\n"
-        "description=Draws 3D Box , Bones and Line to all enemies\n"
+        "description=L3 + R3 to show / hide menu\n"
     )
 
     #

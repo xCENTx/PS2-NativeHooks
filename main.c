@@ -7,92 +7,6 @@
 // ------------------------------------------------------------
 // statics
 // ------------------------------------------------------------
-typedef s8 CHEAT_FEATURES;
-enum
-{
-    CHEAT_ESP,
-    CHEAT_INFINITE_AMMO,
-    CHEAT_NO_RELOAD,
-    CHEAT_PERFECT_SHOT,
-    CHEAT_AIMBOT,
-    CHEAT_TELEPORT_TO_XHAIR,
-    CHEAT_MAX
-};
-__attribute__((section(".cheats")))
-static bool m_featureset[CHEAT_MAX] = { false };
-
-// ------------------------------------------------------------
-// Menu
-// ------------------------------------------------------------
-static const f32 menu_scales[] = {0.65f, 0.8f, 1.0f};
-static const char* const menu_sizes[] = {"SMALL", "MEDIUM", "LARGE"};
-static const char* const menu_colors[] = {"CYAN", "AMBER", "GREEN"};
-static const char* const menu_pages[] = {"FEATURES", "DISPLAY"};
-static const Vec4 menu_accents[] = {{65, 210, 235, 128}, {255, 195, 65, 128}, {100, 235, 155, 128}};
-void MenuBuild(u32 pass, u32 pressed)
-{
-    UIContext ui;
-    const UILayout layout = {28, 28, 584, 10};
-    UIStyle style = {28,
-                     2,
-                     4,
-                     0.67f,
-                     24,
-                     8,
-                     4,
-                     {12, 18, 28, 112},
-                     {35, 58, 73, 112},
-                     {235, 240, 245, 128},
-                     {160, 174, 190, 128},
-                     {0, 0, 0, 0}};
-    u32 page = g_menu.page;
-    f32 scale = menu_scales[g_menu.scale_index];
-    style.accent = menu_accents[g_menu.accent_index];
-    UI_BeginWindow(&ui, &g_menu.ui[page], &layout, &style, pass, pressed);
-    UI_Text(&ui, "SOCOM - NATIVE MENU", 1.0f, style.text);
-    UI_Text(&ui, "SCUS 972.05", 0.65f, style.muted);
-    UI_Spacing(&ui, 10);
-    UI_Combo(&ui, 100, "PAGE", &g_menu.page, menu_pages, 2, scale);
-    if (page == 0)
-    {
-        UI_Checkbox(&ui, 1, "ESP", &m_featureset[CHEAT_ESP], scale);
-        UI_Checkbox(&ui, 2, "INFINITE AMMO", &m_featureset[CHEAT_INFINITE_AMMO], scale);
-        UI_Checkbox(&ui, 3, "NO RELOAD", &m_featureset[CHEAT_NO_RELOAD], scale);
-        UI_Checkbox(&ui, 4, "PERFECT SHOT", &m_featureset[CHEAT_PERFECT_SHOT], scale);
-        UI_Checkbox(&ui, 5, "AIMBOT", &m_featureset[CHEAT_AIMBOT], scale);
-        UI_Checkbox(&ui, 6, "TELEPORT TO CROSSHAIR", &m_featureset[CHEAT_TELEPORT_TO_XHAIR], scale);
-    }
-    else
-    {
-        UI_Checkbox(&ui, 101, "WATERMARK", &g_menu.watermark, scale);
-        UI_Combo(&ui, 102, "TEXT SIZE", &g_menu.scale_index, menu_sizes, 3, scale);
-        UI_Combo(&ui, 103, "ACCENT COLOR", &g_menu.accent_index, menu_colors, 3, scale);
-        if (UI_Button(&ui, 104, "RESET DISPLAY", scale))
-        {
-            g_menu.watermark = true;
-            g_menu.scale_index = 1;
-            g_menu.accent_index = 0;
-        }
-    }
-    UI_Spacing(&ui, 8);
-    UI_Text(&ui, "D-PAD: MOVE / CHANGE    CROSS: SELECT", 0.6f, style.muted);
-    UI_Spacing(&ui, 6);
-    UI_Text(&ui, "L3 + R3: TOGGLE    CIRCLE: CLOSE", 0.6f, style.muted);
-    UI_EndWindow(&ui);
-}
-
-void MenuDraw(void)
-{
-    if (g_menu.watermark)
-    {
-        DrawText("PS2-NativeHooks by NightFyre", 32, 408, menu_scales[g_menu.scale_index],
-                 menu_accents[g_menu.accent_index]);
-    }
-    if (g_menu.open)
-    {
-        MenuBuild(UI_DRAW, 0);
-    }
-}
 
 #define BONE_INVALID (-1)
 static const s32 BoneChains[][6] =
@@ -707,6 +621,70 @@ static bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
     }
 
     return false;
+}
+
+static bool GetMuzzleWorldLocation(CZSealBody* seal, Vec3* wsOrigin)
+{
+    if (!seal || !wsOrigin)
+        return false;
+
+    u32 tag = g_tagFirepoint_default;
+
+    CZKit* kit = &seal->mKit;
+
+    if (kit)
+    {
+        s32 index = kit->mCurrentWeaponIndex;
+        if (index >= 0 && index < kit->mMaxWeaponIndex)
+        {
+            CZWeapon* weapon = kit->pWeapons[index];
+
+            if ( weapon 
+                && CZKit_IsLauncherWeapon(weapon) 
+                && kit->mWeaponFireTypes[index] >= 4
+            )
+            {
+                tag = g_tagFirepoint_203;
+            }
+        }
+    }
+    
+    return CZSealBody_GetFirepointPos(
+        seal,
+        &wsOrigin->x,
+        tag
+    );
+}
+
+static bool IsAlive(CZSealBody* seal)
+{
+    return seal && (seal->mEntityBits & ENTITY_IS_ALIVE);
+}
+
+static bool RespawnLocalPlayer(CZSealBody* seal)
+{
+    if (!seal || IsAlive(seal))
+        return false;
+
+    CAppCamera* camera = (CAppCamera*)gAppCamera;
+    if (!camera)
+        return false;
+
+    // Request native respawn.
+    seal->m_should_respawn = true;
+
+    // Restore camera ownership/state.
+    camera->pAttachedPlayer = seal;
+    camera->mCamDeathState = 0;
+
+    // Force CHUD through its menu-state cleanup transition.
+    if (seal->pSealCtrl)
+    {
+        seal->pSealCtrl->m_menu_state = 2;
+        seal->pSealCtrl->m_menu_state = 0;
+    }
+
+    return true;
 }
 
 // ------------------------------------------------------------
@@ -1622,6 +1600,109 @@ static void spDrawSkeleton(CZSealBody* entity)
 }
 
 
+
+// ------------------------------------------------------------
+// Menu
+// ------------------------------------------------------------
+typedef s8 CHEAT_FEATURES;
+enum
+{
+    CHEAT_ESP,
+    CHEAT_INFINITE_AMMO, 
+    CHEAT_NO_RELOAD,
+    CHEAT_PERFECT_SHOT,
+    CHEAT_AIMBOT,
+    CHEAT_TELEPORT_TO_XHAIR,
+    CHEAT_MAGIC_BULLET,
+    CHEAT_FPS,
+    CHEAT_FOG,
+    CHEAT_AI_FRIENDLY,
+    CHEAT_AI_ENEMY,
+    CHEAT_AI_RESPAWNS,
+    CHEAT_AI_VISION,
+    CHEAT_GHOST,
+    CHEAT_MAX
+};
+__attribute__((section(".cheats")))
+static bool m_featureset[CHEAT_MAX] = { false };
+static const f32 menu_scales[] = {0.65f, 0.8f, 1.0f};
+static const char* const menu_sizes[] = {"SMALL", "MEDIUM", "LARGE"};
+static const char* const menu_colors[] = {"CYAN", "AMBER", "GREEN"};
+static const char* const menu_pages[] = {"FEATURES", "DISPLAY"};
+static const Vec4 menu_accents[] = {{65, 210, 235, 128}, {255, 195, 65, 128}, {24, 180, 40, 128}};
+void MenuBuild(u32 pass, u32 pressed)
+{
+    UIContext ui;
+    const UILayout layout = {28, 28, 584, 10};
+    UIStyle style = {
+        28,
+        2,
+        4,
+        0.67f,
+        24,
+        8,
+        4,
+        {12, 18, 28, 112},
+        {35, 58, 73, 112},
+        {235, 240, 245, 128},
+        {160, 174, 190, 128},
+        {0, 0, 0, 0}
+    };
+    u32 page = g_menu.page;
+    f32 scale = menu_scales[g_menu.scale_index];
+    style.accent = menu_accents[g_menu.accent_index];
+    UI_BeginWindow(&ui, &g_menu.ui[page], &layout, &style, pass, pressed);
+    UI_Text(&ui, "SOCOM - NATIVE MENU", 1.0f, style.text);
+    UI_Text(&ui, "SCUS 972.05", 0.65f, style.muted);
+    UI_Spacing(&ui, 10);
+    UI_Combo(&ui, 100, "PAGE", &g_menu.page, menu_pages, 2, scale);
+    if (page == 0)
+    {
+        UI_Checkbox(&ui, 1, "ESP", &m_featureset[CHEAT_ESP], scale);
+        UI_Checkbox(&ui, 2, "INFINITE AMMO", &m_featureset[CHEAT_INFINITE_AMMO], scale);
+        UI_Checkbox(&ui, 3, "NO RELOAD", &m_featureset[CHEAT_NO_RELOAD], scale);
+        UI_Checkbox(&ui, 4, "PERFECT SHOT", &m_featureset[CHEAT_PERFECT_SHOT], scale);
+        UI_Checkbox(&ui, 5, "AIMBOT", &m_featureset[CHEAT_AIMBOT], scale);
+        UI_Checkbox(&ui, 6, "TELEPORT TO CROSSHAIR", &m_featureset[CHEAT_TELEPORT_TO_XHAIR], scale);
+    }
+    else
+    {
+        UI_Checkbox(&ui, 101, "WATERMARK", &g_menu.watermark, scale);
+        UI_Combo(&ui, 102, "TEXT SIZE", &g_menu.scale_index, menu_sizes, 3, scale);
+        UI_Combo(&ui, 103, "ACCENT COLOR", &g_menu.accent_index, menu_colors, 3, scale);
+        if (UI_Button(&ui, 104, "RESET DISPLAY", scale))
+        {
+            g_menu.watermark = true;
+            g_menu.scale_index = 1;
+            g_menu.accent_index = 1;
+        }
+    }
+    UI_Spacing(&ui, 8);
+    UI_Text(&ui, "D-PAD: MOVE / CHANGE    CROSS: SELECT", 0.6f, style.muted);
+    UI_Spacing(&ui, 6);
+    UI_Text(&ui, "L3 + R3: TOGGLE    CIRCLE: CLOSE", 0.6f, style.muted);
+    UI_EndWindow(&ui);
+}
+
+void MenuDraw(void)
+{
+    if (g_menu.watermark)
+    {
+        const char* text = "PS2-NativeHooks by NightFyre";
+        const f32 center_x = 320.0f;
+        const f32 position_y = 424.0f;
+        const f32 scale = 0.6f;
+
+        DrawTextCentered(text, center_x + 1.0f, position_y + 1.0f, scale, (Vec4){0, 0, 0, 128});
+        DrawTextCentered(text, center_x, position_y, scale, menu_accents[g_menu.accent_index]);
+    }
+    if (g_menu.open)
+    {
+        MenuBuild(UI_DRAW, 0);
+    }
+}
+
+
 // ------------------------------------------------------------
 // Feature Callbacks
 // ------------------------------------------------------------
@@ -1731,7 +1812,6 @@ __attribute__((section(".hook"), noinline))
 void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 {
     MenuEnsureInitialized();
-	// execute the original method 
     CheckDIShoot(seal, a2, a3);
 
     if (seal == 0)
@@ -1872,15 +1952,17 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 __attribute__((section(".hook_teleport"), noinline))
 void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
 {
+
     MenuEnsureInitialized();
+
+    Vec3 firepoint;
     CZSealBody* local_seal = ftsGetPlayer();
     CZSealBody* this_seal = (CZSealBody*)kit->pSealBody;
 
-    Vec3 firepoint;
     if (m_featureset[CHEAT_TELEPORT_TO_XHAIR]
         && local_seal && local_seal == this_seal 
         && local_seal->mAimWorldPos.x != 0.0f && local_seal->mAimWorldPos.y != 0.0f && local_seal->mAimWorldPos.y != 0.0f
-        && CZSealBody_GetFirepointPos(local_seal, &firepoint.x, 0x46B500)
+        && GetMuzzleWorldLocation(local_seal, &firepoint)
     )
     {
         Matrix4x4 teleport = local_seal->mMatrix;

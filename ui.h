@@ -108,6 +108,8 @@ void DrawMenuRect(f32 x, f32 y, f32 w, f32 h, Vec4 color);
 void DrawCheckbox(f32 x, f32 y, f32 size, int checked, Vec4 color);
 
 void DrawString2D(const char*, f32, f32, f32, Vec4);
+// Centers a short label horizontally around x; y retains the normal text anchor.
+void DrawTextCentered(const char* text, f32 x, f32 y, f32 scale, Vec4 color);
 void NativeTextMakePacket97205(void*, const u32*, int);
 void NativeMenuTriangle97205(void*, void*);
 /* main.c owns these: feature values, declarations and watermark. */
