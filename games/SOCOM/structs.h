@@ -911,6 +911,35 @@ typedef struct __attribute__((packed))
 } CTarget; //Size: 0x0028
 static_assert(sizeof(CTarget) == 0x28, "Size of CTarget is not correct.");
 
+typedef struct
+{
+	char pad_0000[16]; //0x0000
+	char mEntityType; //0x0010
+	char pad_0011[3]; //0x0011
+	char* p_Name; //0x0014
+	u32 m_UnitsSeenBy; //0x0018
+	Vec3 m_Origin; //0x001C
+	CNode* p_Node; //0x0028
+	Vec3 m_Vel_M; //0x002C
+	Vec3 m_Vel_W; //0x0038
+	Vec3 m_Vel_R; //0x0044
+	Vec4 m_Quat; //0x0050
+	Vec3 m_NextVel_W; //0x0060
+	char pad_006C[4]; //0x006C
+	Vec4 m_NextQuat; //0x0070
+	Matrix4x4 m_Matrix; //0x0080
+	CZSealCtrl* p_SealCtrl; //0x00C0 // CZSealCtrl*
+	s32 m_TeamID; //0x00C4
+	f32 m_MaxTargetRange; //0x00C8
+	s32 mM_axTargetCount; //0x00CC
+	s32 m_TargetCount; //0x00D0
+	CTarget* p_TargetArray; //0x00D4
+	s32 m_AwareCounter; //0x00D8
+	u32 m_EntityBits; //0x00DC
+	char pad_00E0[128]; //0x00E0
+} CEntity;
+static_assert(sizeof(CEntity) == 0x160, "CEntity size mismatch");
+
 struct CZBodyPart
 {
 	Vec3 mOrigin; //0x0000
@@ -991,57 +1020,34 @@ static_assert(sizeof(CZKit) == 0x890, "Size of CZKit is not correct.");
 
 struct CZSealBody
 {
-	char pad_0000[16]; //0x0000
-	char mEntityType; //0x0010
-	char pad_0011[3]; //0x0011
-	char* pName; //0x0014
-	u32 m_UnitsSeenBy; //0x0018
-	Vec3 mOrigin; //0x001C
-	CNode* pNode; //0x0028
-	Vec3 mVel_M; //0x002C
-	Vec3 mVel_W; //0x0038
-	Vec3 mVel_R; //0x0044
-	Vec4 mQuat; //0x0050
-	Vec3 mNextVel_W; //0x0060
-	char pad_006C[4]; //0x006C
-	Vec4 mNextQuat; //0x0070
-	Matrix4x4 mMatrix; //0x0080
-	CZSealCtrl* pSealCtrl; //0x00C0 // CZSealCtrl*
-	s32 mTeamID; //0x00C4
-	f32 mMaxTargetRange; //0x00C8
-	s32 mMaxTargetCount; //0x00CC
-	s32 mTargetCount; //0x00D0
-	CTarget* pTargetArray; //0x00D4
-	s32 mAwareCounter; //0x00D8
-	u32 mEntityBits; //0x00DC
-	char pad_00E0[128]; //0x00E0
-	char mZoomIndex; //0x0160
-	char mLastZoomIndex; //0x0161
+	CEntity m_ent; //0x0000
+	char m_ZoomIndex; //0x0160
+	char m_LastZoomIndex; //0x0161
 	char pad_0162[2]; //0x0162
-	f32 mZoomModifier; //0x0164
+	f32 m_ZoomModifier; //0x0164
 	char pad_0168[260]; //0x0168
-	CZBodyPart* mSkeleton[33]; //0x026C
+	CZBodyPart* m_Skeleton[33]; //0x026C
 	char pad_02F0[20]; //0x02F0
-	char mStance; //0x0304
-	char mLean; //0x0305
+	char m_Stance; //0x0304
+	char m_Lean; //0x0305
 	char pad_0306[2]; //0x0306
-	f32 mShoulderRecoil; //0x0308
+	f32 m_ShoulderRecoil; //0x0308
 	char pad_030C[20]; //0x030C
-	Vec3 mAimWorldPos; //0x0320
+	Vec3 m_AimWorldPos; //0x0320
 	char pad_032C[4]; //0x032C
-	Vec3 mAimWorldAngles; //0x0330
+	Vec3 m_AimWorldAngles; //0x0330
 	char pad_033C[236]; //0x033C
-	Vec3 mRelativeRotation; //0x0428
+	Vec3 m_RelativeRotation; //0x0428
 	char pad_0434[156]; //0x0434
-	SSealStats mSealStats; //0x04D0
+	SSealStats m_SealStats; //0x04D0
 	char pad_0522[14]; //0x0522
-	CZKit mKit; //0x0530
+	CZKit m_Kit; //0x0530
 	char pad_0DC0[40]; //0x0DC0
-	CZSealBody* pCarry; //0x0DE8
+	CZSealBody* p_CarriedBody; //0x0DE8
 	char pad_0DEC[220]; //0x0DEC
-	f32 mElevation; //0x0EC8
+	f32 m_elevation; //0x0EC8
 	char pad_0ECC[4]; //0x0ECC
-	f32 mHealth; //0x0ED0
+	f32 m_health; //0x0ED0
 	u32 m_deathType; //0x0ED4
 	f32 m_time_of_death; //0x0ED8
 	u32 m_killer_index; //0x0EDC
@@ -1057,30 +1063,30 @@ struct CZSealBody
 	f32 m_damagemod; //0x0F00
 	f32 m_retmods; //0x0F04
 	char pad_0F08[28]; //0x0F08
-	Vec2 mHeadHealth; //0x0F24
-	Vec2 mBodyHealth; //0x0F2C
-	Vec2 mArmHealth_L; //0x0F34
-	Vec2 mArmHealth_R; //0x0F3C
-	Vec2 mLegHealth_L; //0x0F44
-	Vec2 mLegHealth_R; //0x0F4C
-	f32 mArmor[6]; //0x0F54
+	Vec2 m_HeadHealth; //0x0F24
+	Vec2 m_BodyHealth; //0x0F2C
+	Vec2 m_ArmHealth_L; //0x0F34
+	Vec2 m_ArmHealth_R; //0x0F3C
+	Vec2 m_LegHealth_L; //0x0F44
+	Vec2 m_LegHealth_R; //0x0F4C
+	f32 m_Armor[6]; //0x0F54
 	char pad_0F6C[24]; //0x0F6C
 	u32 m_bits_1; //0x0F84
 	u32 m_bits_2; //0x0F88
 	char pad_0F88[340]; //0x0F88
-	Vec3 mAimDir; //0x10E0
-	Vec3 mAimGoal; //0x10EC
-	Vec3 mAimPoint; //0x10F8
-	Vec3 mReticlePt; //0x1104
-	Vec3 mAimNorm; //0x1110
-	Vec3 mPrevAimPoint; //0x111C
-	Vec3 mPrevAimNorm; //0x1128
-	Vec3 mPrevReticlePt; //0x1134
-	Vec3 mCurrAimPos; //0x1140
+	Vec3 m_AimDir; //0x10E0
+	Vec3 m_AimGoal; //0x10EC
+	Vec3 m_AimPoint; //0x10F8
+	Vec3 m_ReticlePt; //0x1104
+	Vec3 m_AimNorm; //0x1110
+	Vec3 m_PrevAimPoint; //0x111C
+	Vec3 m_PrevAimNorm; //0x1128
+	Vec3 m_PrevReticlePt; //0x1134
+	Vec3 m_CurrAimPos; //0x1140
 	char pad_114C[4]; //0x114C
-	Vec3 mCurFirePos; //0x1150
+	Vec3 m_CurFirePos; //0x1150
 	char pad_115C[4]; //0x115C
-	Vec3 mSkeletonRoot; //0x1160
+	Vec3 m_SkeletonRoot; //0x1160
 }; //Size: 0x116C
 static_assert(sizeof(CZSealBody) == 0x116C, "Size of CZSealBody is not correct.");
 

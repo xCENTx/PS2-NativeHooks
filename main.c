@@ -583,40 +583,40 @@ static Vec3 GetBoneModelPosition(CZBodyPart* bone)
     return position;
 }
 
-static Vec3 GetBoneWorldPosition(CZSealBody* entity, CZBodyPart* bone)
+static Vec3 GetBoneWorldPosition(CZSealBody* seal, CZBodyPart* bone)
 {
     Vec3 modelPosition = GetBoneModelPosition(bone);
 
     return TransformPoint(
-        &entity->pNode->m_mtx,
+        &seal->m_ent.p_Node->m_mtx,
         modelPosition
     );
 }
 
-static bool GetBoneWorldPosByIndex(CZSealBody* entity, FT_BONE idx, Vec3* wsOrigin)
+static bool GetBoneWorldPosByIndex(CZSealBody* seal, FT_BONE idx, Vec3* wsOrigin)
 {
-    if (entity == 0 || wsOrigin == 0)
+    if (seal == 0 || wsOrigin == 0)
         return false;
 
-    CZBodyPart* bone = entity->mSkeleton[idx];
+    CZBodyPart* bone = seal->m_Skeleton[idx];
     if (!bone)
         return false;
 
-    *wsOrigin = GetBoneWorldPosition(entity, bone);
+    *wsOrigin = GetBoneWorldPosition(seal, bone);
 
     return true;
 }
 
-static bool IsVisible(CZSealBody* fromEntity, CZSealBody* toEntity)
+static bool IsVisible(CZSealBody* fromSeal, CZSealBody* toSeal)
 {
-    if (fromEntity == 0 || toEntity == 0 || fromEntity->mTargetCount <= 0 || fromEntity->pTargetArray == 0)
+    if (fromSeal == 0 || toSeal == 0 || fromSeal->m_ent.m_TargetCount <= 0 || fromSeal->m_ent.p_TargetArray == 0)
         return false;
 
-    for ( int i = 0; i < fromEntity->mTargetCount; i++)
+    for ( int i = 0; i < fromSeal->m_ent.m_TargetCount; i++)
     {
-        CTarget* pTarget = &fromEntity->pTargetArray[i];
+        CTarget* pTarget = &fromSeal->m_ent.p_TargetArray[i];
 
-        if (pTarget->pEntity == toEntity)
+        if (pTarget->pEntity == toSeal)
             return pTarget->m_visible;
     }
 
@@ -630,7 +630,7 @@ static bool GetMuzzleWorldLocation(CZSealBody* seal, Vec3* wsOrigin)
 
     u32 tag = g_tagFirepoint_default;
 
-    CZKit* kit = &seal->mKit;
+    CZKit* kit = &seal->m_Kit;
 
     if (kit)
     {
@@ -658,11 +658,13 @@ static bool GetMuzzleWorldLocation(CZSealBody* seal, Vec3* wsOrigin)
 
 static bool IsAlive(CZSealBody* seal)
 {
-    return seal && (seal->mEntityBits & ENTITY_IS_ALIVE);
+    return seal && (seal->m_ent.m_EntityBits & ENTITY_IS_ALIVE);
 }
 
-static bool RespawnLocalPlayer(CZSealBody* seal)
+static bool RespawnLocalPlayer()
 {
+
+    CZSealBody* seal = ftsGetPlayer();
     if (!seal || IsAlive(seal))
         return false;
 
@@ -678,10 +680,10 @@ static bool RespawnLocalPlayer(CZSealBody* seal)
     camera->mCamDeathState = 0;
 
     // Force CHUD through its menu-state cleanup transition.
-    if (seal->pSealCtrl)
+    if (seal->m_ent.p_SealCtrl)
     {
-        seal->pSealCtrl->m_menu_state = 2;
-        seal->pSealCtrl->m_menu_state = 0;
+        seal->m_ent.p_SealCtrl->m_menu_state = MENU_STATE_ORDERS;
+        seal->m_ent.p_SealCtrl->m_menu_state = MENU_STATE_NONE;
     }
 
     return true;
@@ -1503,9 +1505,9 @@ static void spDrawBoundingBox(CNode* node, Vec3 color)
 }
 
 // connects all skeleton points on a czseal and draws in both world and canvas spaces
-static void wsDrawSkeleton(CZSealBody* entity)
+static void wsDrawSkeleton(CZSealBody* seal)
 {
-    if (entity == 0 || entity->pNode == 0)
+    if (seal == 0 || seal->m_ent.p_Node == 0)
         return;
 
     for (int limb = 0; limb < BONE_CHAIN_COUNT; limb++)
@@ -1520,8 +1522,7 @@ static void wsDrawSkeleton(CZSealBody* entity)
             if (boneIndex == BONE_INVALID)
                 break;
 
-            CZBodyPart* bone =
-                entity->mSkeleton[boneIndex];
+            CZBodyPart* bone = seal->m_Skeleton[boneIndex];
 
             if (bone == 0)
             {
@@ -1529,7 +1530,7 @@ static void wsDrawSkeleton(CZSealBody* entity)
                 continue;
             }
 
-            Vec3 currentPosition = GetBoneWorldPosition(entity, bone);
+            Vec3 currentPosition = GetBoneWorldPosition(seal, bone);
 
             if (!havePrevious)
             {
@@ -1549,11 +1550,11 @@ static void wsDrawSkeleton(CZSealBody* entity)
 }
 
 // draws a player skeleton using custom bone indexing - renders in screen space
-static void spDrawSkeleton(CZSealBody* entity)
+static void spDrawSkeleton(CZSealBody* seal)
 {
     Vec4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-    if (entity == 0 || entity->pNode == 0)
+    if (seal == 0 || seal->m_ent.p_Node == 0)
         return;
 
     for (int limb = 0; limb < BONE_CHAIN_COUNT; limb++)
@@ -1569,7 +1570,7 @@ static void spDrawSkeleton(CZSealBody* entity)
             if (boneIndex == BONE_INVALID)
                 break;
 
-            CZBodyPart* bone = entity->mSkeleton[boneIndex];
+            CZBodyPart* bone = seal->m_Skeleton[boneIndex];
 
             if (bone == 0)
             {
@@ -1577,7 +1578,7 @@ static void spDrawSkeleton(CZSealBody* entity)
                 continue;
             }
 
-            Vec3 world = GetBoneWorldPosition(entity, bone);
+            Vec3 world = GetBoneWorldPosition(seal, bone);
             Vec2 screen;
             bool visible = WorldToScreen(world, &screen);
             if (havePrevious && previousVisible && visible)
@@ -1731,14 +1732,14 @@ static void ProcessPlayerESP(void* obj, void* ctx)
     if (entity == esp->seal)
         return;
 
-    pNode = (CNode*)entity->pNode;
+    pNode = (CNode*)entity->m_ent.p_Node;
 
     if (pNode == 0 || CNode_Rendered(pNode) == 0)
         return;
 
-    isSealTeam = entity->mTeamID == 0x84000006 || entity->mTeamID == 0x8400000A;
+    isSealTeam = entity->m_ent.m_TeamID == 0x84000006 || entity->m_ent.m_TeamID == 0x8400000A;
 
-    if (isSealTeam || entity->mTeamID == esp->seal->mTeamID || entity->mHealth <= 0.0f)
+    if (isSealTeam || entity->m_ent.m_TeamID == esp->seal->m_ent.m_TeamID || entity->m_health <= 0.0f)
         return;
     
     //  wsDrawBoundingBox(pNode);
@@ -1836,7 +1837,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     // infinite ammo
     if (m_featureset[CHEAT_INFINITE_AMMO])
     {
-        CZKit* kit = &seal->mKit;
+        CZKit* kit = &seal->m_Kit;
         for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
         {
             CZWeapon* pWeapon = kit->pWeapons[i];
@@ -1871,9 +1872,9 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     // perfect shot
     if (m_featureset[CHEAT_PERFECT_SHOT])
     {
-        seal->mShoulderRecoil = 0.0f;
+        seal->m_ShoulderRecoil = 0.0f;
         
-        CZKit* kit = &seal->mKit;
+        CZKit* kit = &seal->m_Kit;
         kit->mRecoilPunch = (Vec2){ 0.0f, 0.0f };
         kit->mPrevRecoilPunch = (Vec2){ 0.0f, 0.0f };
         kit->mRifleKick = (Vec3){ 0.0f, 0.0f, 0.0f };
@@ -1882,7 +1883,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     // no reload time / rechamber
     if (m_featureset[CHEAT_NO_RELOAD])
     {
-        CZKit* kit = &seal->mKit;
+        CZKit* kit = &seal->m_Kit;
         for (int i = 0; i < sizeof(kit->pWeapons) / sizeof(kit->pWeapons[0]); i++)
         {
             CZWeapon* pWeapon = kit->pWeapons[i];
@@ -1900,11 +1901,11 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     Vec3 firepoint;
     if ( m_featureset[CHEAT_TELEPORT_TO_XHAIR]
         && CZSealBody_GetFirepointPos(seal, &firepoint.x, 0x46B500)
-        && seal->mAimWorldPos.x != 0.0f && seal->mAimWorldPos.y != 0.0f && seal->mAimWorldPos.y != 0.0f
+        && seal->m_AimWorldPos.x != 0.0f && seal->m_AimWorldPos.y != 0.0f && seal->m_AimWorldPos.y != 0.0f
     )
     {
         float start[4] = {firepoint.x, firepoint.y, firepoint.z, 1.f};
-        float end[4] = {seal->mReticlePt.x, seal->mReticlePt.y, seal->mReticlePt.z, 1.f};
+        float end[4] = {seal->m_ReticlePt.x, seal->m_ReticlePt.y, seal->m_ReticlePt.z, 1.f};
         float color_start[4] = {1.0f, 1.0f, 1.0f, 0.5f};
         float color_end[4] = {0.0f, 1.0f, 0.0f, 0.5f};
         RenderLineWorld(start, end, color_start, color_end);
@@ -1921,8 +1922,8 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
                 && WorldToScreen(targetOrigin[0], &screen[0])
                 && CZSealBody_GetFirepointPos(seal, &targetOrigin[1].x, 0x46B500) && WorldToScreen(targetOrigin[1], &screen[1]))
             {
-                seal->mReticlePt = targetOrigin[0];    
-                seal->mAimPoint = targetOrigin[0];    
+                seal->m_ReticlePt = targetOrigin[0];    
+                seal->m_AimPoint = targetOrigin[0];    
                 //  float start[4] = {320.f, 224.f, 0.f, 1.f};
                 //  float end[4] = {screen.x, screen.y, 0.0f, 1.0f};
                 //  float color_start[4] = {1.0f, 1.0f, 1.0f, 0.3f};
@@ -1961,16 +1962,16 @@ void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
 
     if (m_featureset[CHEAT_TELEPORT_TO_XHAIR]
         && local_seal && local_seal == this_seal 
-        && local_seal->mAimWorldPos.x != 0.0f && local_seal->mAimWorldPos.y != 0.0f && local_seal->mAimWorldPos.y != 0.0f
+        && local_seal->m_AimWorldPos.x != 0.0f && local_seal->m_AimWorldPos.y != 0.0f && local_seal->m_AimWorldPos.y != 0.0f
         && GetMuzzleWorldLocation(local_seal, &firepoint)
     )
     {
-        Matrix4x4 teleport = local_seal->mMatrix;
+        Matrix4x4 teleport = local_seal->m_ent.m_Matrix;
         
         //  target location
-        teleport.m[3][0] = local_seal->mReticlePt.x;
-        teleport.m[3][1] = local_seal->mReticlePt.y;
-        teleport.m[3][2] = local_seal->mReticlePt.z;
+        teleport.m[3][0] = local_seal->m_ReticlePt.x;
+        teleport.m[3][1] = local_seal->m_ReticlePt.y;
+        teleport.m[3][2] = local_seal->m_ReticlePt.z;
 
         // Teleport
         CZSealBody_TeleportTo(local_seal, &teleport);
