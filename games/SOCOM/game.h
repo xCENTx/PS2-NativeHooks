@@ -8,6 +8,7 @@
 // ------------------------------------------------------------
 // Globals
 // ------------------------------------------------------------
+
 #define gHud                        0x0048E594
 #define gWorld                      0x0048D848
 #define gCamera                     0x0051E778
@@ -32,6 +33,7 @@
 // ------------------------------------------------------------
 // PATCHES
 // ------------------------------------------------------------
+
 #define fn_MissionTick_BEQ_MISSION_SUCCESS 0x1F90F0 
 #define AUTO_COMPLETE_ORIGINAL   0x10400005u  // beqz v0, loc_1F9108
 #define AUTO_COMPLETE_PATCHED    0x14400005u  // bnez v0, loc_1F9108 ; force the branch event to OnMissionComplete 
@@ -48,6 +50,7 @@
 // ------------------------------------------------------------
 // SYSCALLS
 // ------------------------------------------------------------
+
 DefineFunction(FlushCache, s32, (s32 mode), 0x0015AB60);
 
 // ------------------------------------------------------------
@@ -109,6 +112,7 @@ DefineFunction(CZKit_HandleFireWeapon, void, (CZKit* kit, s64 a2, s64 a3, f32 a4
 DefineFunction(CZKit_WillFireWeapon, void, (CZKit* kit, f32 a2), 0x002B9140);
 
 DefineHookFor(CZKit_HandleFireWeapon);
+
 
 //
 // ============================================================================
