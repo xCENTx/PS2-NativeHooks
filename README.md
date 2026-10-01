@@ -1,6 +1,9 @@
 # PS2-NativeHooks
 Native hooking and runtime code injection for PlayStation 2 games
 
+<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/3ac06645-c78c-47b5-89d8-bcb7ae30d53e" />
+<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/d4cae0e9-c2a8-4fa9-9cd5-8f462dad7350" />
+
 PS2 NativeHooks is a research project and development base for executing
 custom native code inside PlayStation 2 games.
 
