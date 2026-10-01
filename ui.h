@@ -126,4 +126,6 @@ void NativeTextMakePacket97205(void*, const u32*, int);
 void NativeMenuTriangle97205(void*, void*);
 /* main.c owns these: feature values, declarations and watermark. */
 void MenuBuild(u32 pass, u32 pressed);
+
+void MenuCleanup(void);
 #endif
