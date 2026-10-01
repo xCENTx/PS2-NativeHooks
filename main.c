@@ -1779,7 +1779,7 @@ static void spDrawSkeleton(CZSealBody* seal)
 
 
 // ------------------------------------------------------------
-// Patcher
+// PATCHES
 // ------------------------------------------------------------
 typedef s8 CHEAT_FEATURES;
 enum
@@ -1838,101 +1838,9 @@ static inline void CheatStateUpdate(CheatState* cheat, PatchFn_t enable, PatchFn
         CheatStateApplied(cheat);
 }
 
-static inline void Patch_FlushCache(void)
-{
-    FlushCache(0); // D-cache writeback
-    FlushCache(2); // I-cache invalidate
-}
-
-static inline u8 Patch_ReadU8(u32 address)
-{
-    return *(volatile u8*)address;
-}
-
-static inline u16 Patch_ReadU16(u32 address)
-{
-    return *(volatile u16*)address;
-}
-
-static inline u32 Patch_ReadU32(u32 address)
-{
-    return *(volatile u32*)address;
-}
-
-static inline f32 Patch_ReadFloat(u32 address)
-{
-    return *(volatile f32*)address;
-}
-
-static inline void Patch_U8(u32 address, u8 value)
-{
-    *(volatile u8*)address = value;
-}
-
-static inline void Patch_U16(u32 address, u16 value)
-{
-    *(volatile u16*)address = value;
-}
-
-static inline void Patch_U32(u32 address, u32 value)
-{
-    *(volatile u32*)address = value;
-}
-
-static inline void Patch_Float(u32 address, f32 value)
-{
-    *(volatile f32*)address = value;
-}
-
-static inline void Patch_Instruction(u32 address, u32 instruction)
-{
-    Patch_U32(address, instruction);
-
-    Patch_FlushCache();
-}
-
-static inline bool Patch_InstructionChecked(u32 address, u32 expected, u32 replacement)
-{
-    if (Patch_ReadU32(address) != expected)
-        return false;
-
-    Patch_U32(address, replacement);
-
-    Patch_FlushCache();
-
-    return true;
-}
-
-static inline void Patch_Instructions(u32 address, const u32* instructions, u32 count)
-{
-    volatile u32* dst = (volatile u32*)address;
-
-    for (u32 i = 0; i < count; i++)
-        dst[i] = instructions[i];
-
-    Patch_FlushCache();
-}
-
-static inline void Patch_NOP(u32 address)
-{
-    Patch_Instruction(address, 0x00000000u);
-}
-
-static inline void Patch_J(u32 address, u32 target)
-{
-    u32 instruction = 0x08000000u | ((target >> 2) & 0x03FFFFFFu);
-    Patch_Instruction(address, instruction);
-}
-
-static inline void Patch_JAL(u32 address, u32 target)
-{
-    u32 instruction = 0x0C000000u | ((target >> 2) & 0x03FFFFFFu);
-    Patch_Instruction(address, instruction);
-}
-
 bool Patch_ForceCompleteMission_enable(void)
 {
-    return Patch_InstructionChecked(
+    return Memory_PatchInstructionChecked(
         fn_MissionTick_BEQ_MISSION_SUCCESS, 
         AUTO_COMPLETE_ORIGINAL,        
         AUTO_COMPLETE_PATCHED
@@ -1941,17 +1849,16 @@ bool Patch_ForceCompleteMission_enable(void)
 
 bool Patch_ForceCompleteMission_disable(void)
 {
-    return Patch_InstructionChecked(
+    return Memory_PatchInstructionChecked(
         fn_MissionTick_BEQ_MISSION_SUCCESS, 
         AUTO_COMPLETE_PATCHED, 
         AUTO_COMPLETE_ORIGINAL
     );
 }
 
-
 bool Patch_ForceStart_enable(void)
 {
-    return Patch_InstructionChecked(
+    return Memory_PatchInstructionChecked(
         fn_ToggleReady_JR_RA_FORCE_START,
         FORCE_START_ORIGINAL,
         FORCE_START_PATCHED
@@ -1960,17 +1867,16 @@ bool Patch_ForceStart_enable(void)
 
 bool Patch_ForceStart_disable(void)
 {
-    return Patch_InstructionChecked(
+    return Memory_PatchInstructionChecked(
         fn_ToggleReady_JR_RA_FORCE_START,
         FORCE_START_PATCHED,
         FORCE_START_ORIGINAL
     );
 }
 
-
 bool Patch_NeverEnd_enable(void)
 {
-    return Patch_InstructionChecked(
+    return Memory_PatchInstructionChecked(
         fn_MissionTick_JAL_MP_ROUND_END,
         NEVER_END_ORIGINAL,
         NEVER_END_PATCHED
@@ -1979,7 +1885,7 @@ bool Patch_NeverEnd_enable(void)
 
 bool Patch_NeverEnd_disable(void)
 {
-    return Patch_InstructionChecked(
+    return Memory_PatchInstructionChecked(
         fn_MissionTick_JAL_MP_ROUND_END,
         NEVER_END_PATCHED,
         NEVER_END_ORIGINAL
@@ -2018,136 +1924,11 @@ void Patches_Tick(void)
     );
 }
 
-//
-// ------------------------------------------------------------
-// Hooker
-// ------------------------------------------------------------
-//
-
-typedef enum
-{
-    HOOK_TYPE_NONE = 0,
-    HOOK_TYPE_J,
-    HOOK_TYPE_JAL
-} HookType;
-
-typedef struct
-{
-    u32 address;            // Address being hooked.
-    u32 original;           // Original instruction.
-    u32 target;             // Hook target.
-    HookType type;
-    bool installed;
-} Hook;
-
 
 // ------------------------------------------------------------
-// Hooker - Instruction Encoding
+// MENU
 // ------------------------------------------------------------
 
-static inline u32 Hook_MakeJ(u32 target)
-{
-    return 0x08000000u |
-        ((target >> 2) & 0x03FFFFFFu);
-}
-
-static inline u32 Hook_MakeJAL(u32 target)
-{
-    return 0x0C000000u |
-        ((target >> 2) & 0x03FFFFFFu);
-}
-
-
-// ------------------------------------------------------------
-// Hooker - Initialization
-// ------------------------------------------------------------
-
-static inline void Hook_Init( Hook* hook, u32 address, u32 target, HookType type)
-{
-    hook->address   = address;
-    hook->original  = 0;
-    hook->target    = target;
-    hook->type      = type;
-    hook->installed = false;
-}
-
-
-// ------------------------------------------------------------
-// Hooker - Installation
-// ------------------------------------------------------------
-
-static inline bool Hook_Install(Hook* hook)
-{
-    if (!hook)
-        return false;
-
-    if (hook->installed)
-        return true;
-
-    //
-    // Save the original instruction so the hook can
-    // later be removed without hardcoding restore values.
-    //
-    hook->original = Patch_ReadU32(hook->address);
-
-    switch (hook->type)
-    {
-        case HOOK_TYPE_J:
-            Patch_J( hook->address, hook->target );
-            break;
-
-        case HOOK_TYPE_JAL:
-            Patch_JAL( hook->address, hook->target );
-            break;
-
-        default:
-            return false;
-    }
-
-    hook->installed = true;
-
-    return true;
-}
-
-
-// ------------------------------------------------------------
-// Hooker - Removal
-// ------------------------------------------------------------
-
-static inline bool Hook_Remove(Hook* hook)
-{
-    if (!hook)
-        return false;
-
-    if (!hook->installed)
-        return true;
-
-    Patch_Instruction( hook->address, hook->original );
-
-    hook->installed = false;
-
-    return true;
-}
-
-
-// ------------------------------------------------------------
-// Hooker - Helpers
-// ------------------------------------------------------------
-
-static inline bool Hook_IsInstalled(const Hook* hook)
-{
-    return hook && hook->installed;
-}
-
-static inline u32 Hook_GetOriginal(const Hook* hook)
-{
-    return hook ? hook->original : 0;
-}
-
-
-// ------------------------------------------------------------
-// Menu
-// ------------------------------------------------------------
 static const f32 menu_scales[] = {0.65f, 0.8f, 1.0f};
 static const char* const menu_sizes[] = {"SMALL", "MEDIUM", "LARGE"};
 static const char* const menu_colors[] = {"CYAN", "AMBER", "GREEN"};
@@ -2501,10 +2282,10 @@ static void ProcessPlayerFeatures(CZSealBody* seal)
 
 
 // ------------------------------------------------------------
-// Native Hook
+// HOOKS
 // ------------------------------------------------------------
-// CCameraApp::Tick -> CZSealBody::CheckDIShoot
-__attribute__((section(".hook"), noinline))
+
+__attribute__((noinline))
 void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 {
     MenuEnsureInitialized();
@@ -2594,7 +2375,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 }
 
 //
-__attribute__((section(".hook_teleport"), noinline))
+__attribute__((noinline))
 void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
 {
 
@@ -2629,13 +2410,47 @@ void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
     CZKit_HandleFireWeapon(kit, a2, a3, a4);
 }
 
-__attribute__((section(".hook_force_start"), noinline))
+__attribute__((noinline))
 void hk_ToggleReady(void)
 {
-    CZPersonaState_ToggleReady();
+    CZPersonaState_ToggleReady_Original();
 
     if (m_featureset[CHEAT_MATCH_FORCE_START].enabled)
         UIForceMPLaunch();
+}
+
+__attribute__((noinline))
+void hk_OnMissionComplete(CMission* pMission, MISSION_STATE dwState)
+{
+    bool bSafe = dwState == MISSION_UNLOADED || dwState == MISSION_ABORTED || dwState == MISSION_TIMEOUT;
+
+    if (bSafe || m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled) 
+    {
+        CMission_OnMissionComplete_Original(pMission, dwState);
+        return;
+    }
+    
+    if ( m_featureset[CHEAT_MATCH_NEVER_ENDS].enabled)
+    {
+        return;
+    }
+
+    CMission_OnMissionComplete_Original(pMission, dwState);
+}
+
+// ------------------------------------------------------------
+// MAIN
+// ------------------------------------------------------------
+
+void socom_thread(void)
+{
+    Memory_SetFlushCacheFunction(FlushCache); // Set the function to flush the CPU cache
+
+    // setup hooks
+    CreateDetour(CZSealBody_CheckDIShoot, hk_CheckDIShoot);
+    CreateDetour(CZKit_HandleFireWeapon, hk_HandleFireWeapon);
+    CreateDetour(CMission_OnMissionComplete, hk_OnMissionComplete);
+    CreateDetour(CZPersonaState_ToggleReady, hk_ToggleReady);
 }
 
 // Keep the original single-source build. Header guards prevent repeated game definitions.
