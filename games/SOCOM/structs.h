@@ -84,6 +84,7 @@ typedef struct CZSealBody CZSealBody;
 // ------------------------------------------------------------
 // 
 // ------------------------------------------------------------
+
 #define ENTITY_TEAM_SEAL_ABLE = 0x84000006
 #define ENTITY_TEAM_SEAL_BRAVO = 0x8400000A
 
@@ -311,10 +312,13 @@ enum
 	MISSION_TIMEOUT
 };
 
+
 // ------------------------------------------------------------
 // Macros
 // ------------------------------------------------------------
+
 #define FIRETEAM_MASK(team) (1u << (team))
+
 
 // ------------------------------------------------------------
 // Math
@@ -375,9 +379,11 @@ typedef struct
 } RFloat; //Size: 0x0008
 static_assert(sizeof(RFloat) == 0x8, "Size of RFloat is not correct.");
 
+
 // ------------------------------------------------------------
 // Drawing Primitives
 // ------------------------------------------------------------
+
 #define GS_ALPHA_NORMAL 0x44ULL
 #define GS_REG_ALPHA_1 0x42
 #define GS_REG_AD      0x0E
@@ -437,6 +443,7 @@ typedef struct __attribute__((aligned(16)))
     u64 gif_regs;
     GSPackedVertex vertices[CIRCLE_VERTICES];
 } GSCirclePacket;
+
 
 // ------------------------------------------------------------
 // Z containers
@@ -833,7 +840,6 @@ typedef struct __attribute__((packed))
 static_assert(sizeof(CAppCamera) == 0x95, "Size of CAppCamera is not correct.");
 
 
-
 // ------------------------------------------------------------
 // Weapons / Ammo
 // ------------------------------------------------------------
@@ -913,6 +919,7 @@ typedef struct __attribute__((packed))
 } CPickup; //Size: 0x0015
 static_assert(sizeof(CPickup) == 0x15, "Size of CPickup is not correct.");
 
+
 // ------------------------------------------------------------
 // Seal
 // ------------------------------------------------------------
@@ -930,7 +937,6 @@ typedef struct __attribute__((packed))
 	s32 player_grid_count; // 0x0020
 } AI_PARAMS; //Size: 0x0024
 static_assert(sizeof(AI_PARAMS) == 0x24, "Size of AI_PARAMS is not correct.");
-
 
 typedef struct __attribute__((packed))
 {
