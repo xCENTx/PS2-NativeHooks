@@ -3,8 +3,10 @@
 
 #include "structs.h"
 
-#define ELF_PATH "cdrom0:\\SCUS_971.34;1"
+#define DefineFunction(name, ret, params, addr) typedef ret (*name##_t) params; static const name##_t name = (name##_t)(addr)
+#define CallFunction(ret, params, addr) ((ret (*) params)(addr))
 
+#define ELF_PATH "cdrom0:\\SCUS_971.34;1"
 
 // ------------------------------------------------------------
 // Globals
@@ -50,8 +52,7 @@
 // ------------------------------------------------------------
 // SYSCALLS
 // ------------------------------------------------------------
-typedef s32 (*FlushCache_t)(s32 mode);
-#define FlushCache ((FlushCache_t)0x0015AB60)
+DefineFunction(FlushCache, s32, (s32 mode), 0x0015AB60);
 
 // ------------------------------------------------------------
 // Native functions
@@ -63,23 +64,16 @@ typedef s32 (*FlushCache_t)(s32 mode);
 // ============================================================================
 //
 
-typedef CZSealBody* (*ftsGetPlayer_t)(void);
-#define ftsGetPlayer ((ftsGetPlayer_t)0x00200010)
+DefineFunction(ftsGetPlayer, CZSealBody*, (void), 0x00200010);
+DefineFunction(ftsSetPlayer, void, (CZSealBody* player), 0x00200020);
+DefineFunction(ftsCreateSeal, CZSealBody*, (CCharacterType* character, const char* name, SEAL_CONTROL_TYPE controlType), 0x00200470);
 
-typedef void (*ftsSetPlayer_t)(CZSealBody* player);
-#define ftsSetPlayer ((ftsSetPlayer_t)0x00200020)
-
-typedef void (*CEntity_SetTeamMask_t)(CEntity* entity, s32 teamMask);
-#define CEntity_SetTeamMask ((CEntity_SetTeamMask_t)0x001F00B0)
-
-typedef void (*CEntity_JoinTeam_t)(CEntity* entity, u32 team);
-#define CEntity_JoinTeam ((CEntity_JoinTeam_t)0x001F0080)
-
-typedef u32 (*ClearTeamMask_t)(u32 mask, u32 team);
-#define ClearTeamMask ((ClearTeamMask_t)0x002FF660)
-
-typedef bool (*CNode_Rendered_t)(CNode* node);
-#define CNode_Rendered ((CNode_Rendered_t)0x0022A4B0)
+DefineFunction(CEntity_SetTeamMask, void, (CEntity* entity, s32 teamMask), 0x001F00B0);
+DefineFunction(CEntity_JoinTeam, void, (CEntity* entity, u32 team), 0x001F0080);
+DefineFunction(ClearTeamMask, u32, (u32 mask, u32 team), 0x002FF660);
+DefineFunction(CNode_Rendered, bool, (CNode* node), 0x0022A4B0);
+DefineFunction(CNode_SetName, void, (CNode* node, const char* name), 0x00229C50);
+DefineFunction(CEntity_SetDisplayName, void, (CEntity* entity, const char* name), 0x001F0010);
 
 
 //
@@ -88,17 +82,11 @@ typedef bool (*CNode_Rendered_t)(CNode* node);
 // ============================================================================
 //
 
-typedef s64 (*GetCharacterHit_t)(CZSealBody* seal, f32* outOrigin, s64 a3);
-#define GetCharacterHit ((GetCharacterHit_t)0x002A8200)
-
-typedef void (*CZSealBody_CheckDIShoot_t)(CZSealBody* seal, s64 a2, s32 a3);
-#define CZSealBody_CheckDIShoot ((CZSealBody_CheckDIShoot_t)0x002A7490)
-
-typedef bool (*CZSealBody_GetFirepointPos_t)(CZSealBody* seal, f32* outPosition, s64 a3);
-#define CZSealBody_GetFirepointPos ((CZSealBody_GetFirepointPos_t)0x002D1720)
-
-typedef s64 (*CZSealBody_TeleportTo_t)(CZSealBody* seal, const Matrix4x4* matrix);
-#define CZSealBody_TeleportTo ((CZSealBody_TeleportTo_t)0x002537D0)
+DefineFunction(GetCharacterHit, s64, (CZSealBody* seal, f32* outOrigin, s64 a3), 0x002A8200);
+DefineFunction(CZSealBody_GetCharacter, CCharacterType*, (CZSealBody* seal), 0x002953F0);
+DefineFunction(CZSealBody_CheckDIShoot, void, (CZSealBody* seal, s64 a2, s32 a3), 0x002A7490);
+DefineFunction(CZSealBody_GetFirepointPos, bool, (CZSealBody* seal, f32* outPosition, s64 a3), 0x002D1720);
+DefineFunction(CZSealBody_TeleportTo, s64, (CZSealBody* seal, const Matrix4x4* matrix), 0x002537D0);
 
 
 //
@@ -107,11 +95,9 @@ typedef s64 (*CZSealBody_TeleportTo_t)(CZSealBody* seal, const Matrix4x4* matrix
 // ============================================================================
 //
 
-typedef CSealUnit* (*CSealUnit_GetUnitByTeam_t)(u32 team);
-#define CSealUnit_GetUnitByTeam ((CSealUnit_GetUnitByTeam_t)0x002EABC0)
-
-typedef u64 (*CSealUnit_SealJoinUnit_t)(CSealUnit* unit, CZSealBody* seal);
-#define CSealUnit_SealJoinUnit ((CSealUnit_SealJoinUnit_t)0x002E9EF0)
+DefineFunction(CSealUnit_InitalizeSealUnit, void, (CZSealBody* seal), 0x002E7820);
+DefineFunction(CSealUnit_GetUnitByTeam, CSealUnit*, (u32 team), 0x002EABC0);
+DefineFunction(CSealUnit_SealJoinUnit, u64, (CSealUnit* unit, CZSealBody* seal), 0x002E9EF0);
 
 
 //
@@ -120,18 +106,10 @@ typedef u64 (*CSealUnit_SealJoinUnit_t)(CSealUnit* unit, CZSealBody* seal);
 // ============================================================================
 //
 
-typedef bool (*CZKit_IsLauncherWeapon_t)(CZWeapon* weapon);
-#define CZKit_IsLauncherWeapon ((CZKit_IsLauncherWeapon_t)0x0032EB90)
-
-typedef bool (*CZKit_WeaponIsGrenadeLauncherMode_t)(CZKit* kit, s64 a2);
-#define CZKit_WeaponIsGrenadeLauncherMode ((CZKit_WeaponIsGrenadeLauncherMode_t)0x002B6710)
-
-typedef void (*CZKit_HandleFireWeapon_t)(CZKit* kit, s64 a2, s64 a3, f32 a4);
-#define CZKit_HandleFireWeapon ((CZKit_HandleFireWeapon_t)0x002B7730)
-
-// Currently unused.
-typedef void (*CZKit_WillFireWeapon_t)(CZKit* kit, f32 a2);
-#define CZKit_WillFireWeapon ((CZKit_WillFireWeapon_t)0x002B9140)
+DefineFunction(CZKit_IsLauncherWeapon, bool, (CZWeapon* weapon), 0x0032EB90);
+DefineFunction(CZKit_WeaponIsGrenadeLauncherMode, bool, (CZKit* kit, s64 a2), 0x002B6710);
+DefineFunction(CZKit_HandleFireWeapon, void, (CZKit* kit, s64 a2, s64 a3, f32 a4), 0x002B7730);
+DefineFunction(CZKit_WillFireWeapon, void, (CZKit* kit, f32 a2), 0x002B9140);
 
 
 //
@@ -141,22 +119,16 @@ typedef void (*CZKit_WillFireWeapon_t)(CZKit* kit, f32 a2);
 //
 
 // Glyph lookup used by retail C2DString::MakePacket.
-typedef u32 (*C2DFont_GetEntry_t)(u32 font, s32 character);
-#define C2DFont_GetEntry ((C2DFont_GetEntry_t)0x00316130)
+DefineFunction(C2DFont_GetEntry, u32, (u32 font, s32 character), 0x00316130);
 
 // Loads a string with the specified font and screen position.
-typedef void (*C2DString_Load_t)(C2DString* self, const char* text, C2DFont* font, s32 x, s32 y);
-#define C2DString_Load ((C2DString_Load_t)0x00319340)
+DefineFunction(C2DString_Load, void, (C2DString* self, const char* text, C2DFont* font, s32 x, s32 y), 0x00319340);
 
 // Draws the string using the specified camera.
-typedef void (*C2DString_Draw_t)(C2DString* self, CZCamera* camera);
-#define C2DString_Draw ((C2DString_Draw_t)0x003196D0)
+DefineFunction(C2DString_Draw, void, (C2DString* self, CZCamera* camera), 0x003196D0);
 
-typedef void (*C2DString_MakePacket_t)(void* self, const u32* relocator, s32 depth);
-#define C2DString_MakePacket ((C2DString_MakePacket_t)0x00319750)
-
-typedef void (*C2DPoly_MakePacket_t)(void* self, void* a2);
-#define C2DPoly_MakePacket ((C2DPoly_MakePacket_t)0x003180F0)
+DefineFunction(C2DString_MakePacket, void, (void* self, const u32* relocator, s32 depth), 0x00319750);
+DefineFunction(C2DPoly_MakePacket, void, (void* self, void* a2), 0x003180F0);
 
 
 //
@@ -166,27 +138,21 @@ typedef void (*C2DPoly_MakePacket_t)(void* self, void* a2);
 //
 
 // Draws a line from the previous point to the supplied point.
-typedef void (*AI_LineTo_t)(f32* point);
-#define AI_LineTo ((AI_LineTo_t)0x002F81A0)
+DefineFunction(AI_LineTo, void, (f32* point), 0x002F81A0);
 
 // Draws a line in 3D space.
-typedef void (*AI_DrawLine_t)(u64 mask, f32* start, f32* end);
-#define AI_DrawLine ((AI_DrawLine_t)0x002F8030)
+DefineFunction(AI_DrawLine, void, (u64 mask, f32* start, f32* end), 0x002F8030);
 
 // Draws a line in world space.
-typedef void (*RenderLineWorld_t)(f32* start, f32* end, f32* colorStart, f32* colorEnd);
-#define RenderLineWorld ((RenderLineWorld_t)0x00249590)
+DefineFunction(RenderLineWorld, void, (f32* start, f32* end, f32* colorStart, f32* colorEnd), 0x00249590);
 
 // Draws a line in screen/canvas space.
-typedef void (*Draw2DLine_t)(f32* start, f32* end, f32* colorStart, f32* colorEnd);
-#define Draw2DLine ((Draw2DLine_t)0x00316FB0)
+DefineFunction(Draw2DLine, void, (f32* start, f32* end, f32* colorStart, f32* colorEnd), 0x00316FB0);
 
 // Draws a line in world space.
-typedef void (*Draw3DLine_t)(f32* start, f32* end, f32* colorStart, f32* colorEnd);
-#define Draw3DLine ((Draw3DLine_t)0x00317220)
+DefineFunction(Draw3DLine, void, (f32* start, f32* end, f32* colorStart, f32* colorEnd), 0x00317220);
 
-typedef bool (*Clip3DLine_t)(s64 a1, s64 a2, s64 a3);
-#define Clip3DLine ((Clip3DLine_t)0x00316C90)
+DefineFunction(Clip3DLine, bool, (s64 a1, s64 a2, s64 a3), 0x00316C90);
 
 
 //
@@ -196,8 +162,7 @@ typedef bool (*Clip3DLine_t)(s64 a1, s64 a2, s64 a3);
 //
 
 // Adds a message to the top-center message queue.
-typedef s64 (*C2DMessage_AddMessage_t)(void* queue, const char* message, f32 a3);
-#define C2DMessage_AddMessage ((C2DMessage_AddMessage_t)0x00202C70)
+DefineFunction(C2DMessage_AddMessage, s64, (void* queue, const char* message, f32 a3), 0x00202C70);
 
 
 //
@@ -207,17 +172,11 @@ typedef s64 (*C2DMessage_AddMessage_t)(void* queue, const char* message, f32 a3)
 //
 
 // Copies a matrix from src to dst.
-typedef void (*sceVu0CopyMatrix_t)(s64 dst, s64 src);
-#define sceVu0CopyMatrix ((sceVu0CopyMatrix_t)0x001518A8)
+DefineFunction(sceVu0CopyMatrix, void, (s64 dst, s64 src), 0x001518A8);
 
-typedef void (*sceVu0CopyVector_t)(void* dst, void* src);
-#define sceVu0CopyVector ((sceVu0CopyVector_t)0x00151898)
-
-typedef void (*sceVu0FTOI0Vector_t)(s32* dst, f32* src);
-#define sceVu0FTOI0Vector ((sceVu0FTOI0Vector_t)0x001518E0)
-
-typedef void (*sceVu0RotTransPers_t)(s32* dst,f32* matrix,f32* src,s32 mode);
-#define sceVu0RotTransPers ((sceVu0RotTransPers_t)0x001520E8)
+DefineFunction(sceVu0CopyVector, void, (void* dst, void* src), 0x00151898);
+DefineFunction(sceVu0FTOI0Vector, void, (s32* dst, f32* src), 0x001518E0);
+DefineFunction(sceVu0RotTransPers, void, (s32* dst, f32* matrix, f32* src, s32 mode), 0x001520E8);
 
 
 //
@@ -226,15 +185,11 @@ typedef void (*sceVu0RotTransPers_t)(s32* dst,f32* matrix,f32* src,s32 mode);
 // ============================================================================
 //
 
-typedef u64 (*zSysSprGetPacket_FPP1_t)(s32 a1);
-#define zSysSprGetPacket_FPP1 ((zSysSprGetPacket_FPP1_t)0x0030D1E0)
-
-typedef void (*zSysFifoKick_t)(void* packet, s32 a2);
-#define zSysFifoKick ((zSysFifoKick_t)0x0030CFB0)
+DefineFunction(zSysSprGetPacket_FPP1, u64, (s32 a1), 0x0030D1E0);
+DefineFunction(zSysFifoKick, void, (void* packet, s32 a2), 0x0030CFB0);
 
 // Useful render hook point.
-typedef void (*zVid_ZTestOn_t)(void);
-#define zVid_ZTestOn ((zVid_ZTestOn_t)0x0031ED90)
+DefineFunction(zVid_ZTestOn, void, (void), 0x0031ED90);
 
 
 //
@@ -244,12 +199,10 @@ typedef void (*zVid_ZTestOn_t)(void);
 //
 
 // Useful input hook point.
-typedef u64 (*recoTick_t)(void);
-#define recoTick ((recoTick_t)0x00352B70)
+DefineFunction(recoTick, u64, (void), 0x00352B70);
 
 // Useful pause/game-state hook point.
-typedef u64 (*CHUD_PauseGame_t)();
-#define CHUD_PauseGame ((CHUD_PauseGame_t)0x003D9DF0)
+DefineFunction(CHUD_PauseGame, u64, (), 0x003D9DF0);
 
 
 // ------------------------------------------------------------

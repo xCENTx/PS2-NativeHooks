@@ -759,6 +759,113 @@ static bool RespawnLocalPlayer()
     return true;
 }
 
+static CZSealBody* SpawnAIBot(CCharacterType* character, const char* name, u32 teamMask, Matrix4x4 position, u32* outId)
+{
+    if (!character || !name)
+        return 0;
+
+    CZSealBody* bot = ftsCreateSeal(character, name, CTRL_AI);
+    if (!bot)
+        return 0;
+
+    /*
+    
+        zdb::CNode::SetName(*(int *)(Seal + 0x28), a2);
+        if ( *(_BYTE *)(a2 + 0x50) )
+            CEntity::SetDisplayName(v21, (int)a2 + 0x50);
+        (*(void (__fastcall **)(__int64, _QWORD, _QWORD))(*(_DWORD *)v21 + 60))(v21, (int)&v47, (int)&v44); // teleport
+        CEntity::SetTeamMask(v21, v13);
+        v22 = 1LL;
+        v23 = 1;
+        if ( (*(_BYTE *)(a2 + 260) & 8) == 0 )
+        v22 = 0LL;
+        if ( !v22 )
+        v23 = 0;
+        *(_BYTE *)(v21 + 221) = *(_BYTE *)(v21 + 221) & 0xFE | v23 & 1;
+        v24 = ((__int64 (*)(void))*(_DWORD *)(**(_DWORD **)(v21 + 192) + 56))();
+        v25 = v24;
+        if ( v24 )
+        {
+            v26 = 1LL;
+            v27 = v24 + 1500;
+            v28 = 1;
+            v29 = 1LL;
+            v30 = 1;
+            *(_BYTE *)(v24 + 640) &= ~1u;
+            if ( (*(_BYTE *)(a2 + 260) & 4) == 0 )
+                v26 = 0LL;
+            if ( !v26 )
+                v28 = 0;
+            *(_BYTE *)(v24 + 640) = *(_BYTE *)(v24 + 640) & 0xDF | (32 * (v28 & 1));// CSealCtrlAi::SetDebug
+            if ( (*(_BYTE *)(a2 + 260) & 0x20) == 0 )
+                v29 = 0LL;
+            if ( !v29 )
+                v30 = 0;
+            *(_BYTE *)(v24 + 641) = *(_BYTE *)(v24 + 641) & 0xFB | (4 * (v30 & 1));
+            AI_PARAMS::__as((int)v24 + 1500, (int)a2 + 200);
+            *(_DWORD *)(v27 + 56) = a2;
+            CSealCtrlAi::InitAiBrain(v25, v31, v32);
+            result = v21;
+        }
+        else
+        {
+            if ( a3 )
+            {
+                if ( (*(_DWORD *)(a1 + 176) & 0x1000LL) != 0 )
+                *(_BYTE *)(v21 + 3972) = *(_BYTE *)(v21 + 3972) & 0xF7 | 8;
+                if ( (*(_DWORD *)(a1 + 176) & 0x2000LL) != 0 )
+                *(_BYTE *)(v21 + 3972) = *(_BYTE *)(v21 + 3972) & 0xEF | 0x10;
+            }
+            result = v21;
+        }
+    
+    */
+
+    
+    CNode_SetName(bot->m_ent.p_Node, name);
+    
+    CEntity_SetDisplayName(&bot->m_ent, name);
+
+    CEntity_SetTeamMask(&bot->m_ent, teamMask);
+
+    CZSealBody_TeleportTo(bot, &position);
+
+    if (outId)
+        *outId = bot->m_ent.m_id;
+
+    return bot;
+}
+
+static CZSealBody* SpawnFriendlyAIBot(const char* name, u32* outId)
+{
+    if (!name || !outId)
+        return 0;
+
+    CZSealBody* local_seal = ftsGetPlayer();
+    if (!local_seal)
+        return 0;
+
+    CCharacterType* character = CZSealBody_GetCharacter(local_seal);
+    if (!character)
+        return 0;
+
+    Matrix4x4 tm = local_seal->m_ent.m_Matrix;
+    tm.m[3][0] = local_seal->m_ReticlePt.x;
+    tm.m[3][1] = local_seal->m_ReticlePt.y;
+    tm.m[3][2] = local_seal->m_ReticlePt.z;
+
+    CZSealBody* bot = SpawnAIBot(character, name, local_seal->m_ent.m_TeamMask, tm, outId);
+    if (!bot)
+        return 0;
+
+    return bot;
+}
+
+static bool RemoveBot(u8 id)
+{
+
+}
+
 // ------------------------------------------------------------
 // Message System
 // ------------------------------------------------------------
@@ -1695,6 +1802,7 @@ enum
     CHEAT_MATCH_NEVER_ENDS,             // 
     CHEAT_MATCH_RESPAWN_MODE,           // 
     CHEAT_MATCH_AUTO_COMPLETE,        //    
+    CHEAT_MATCH_SPAWN_BOT,
     CHEAT_MAX
 };
 
@@ -1984,20 +2092,26 @@ void MenuBuild(u32 pass, u32 pressed)
                 m_featureset[CHEAT_MATCH_RESPAWN_PLAYER].enabled  = true;
             }
 
+            if (UI_Button(&ui, 302, "SPAWN BOT", scale))
+            {
+                
+                m_featureset[CHEAT_MATCH_SPAWN_BOT].enabled  = true;
+            }
+
             // 
-            UI_Checkbox(&ui, 302, "AUTO COMPLETE MISSION", &m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled, scale);
+            UI_Checkbox(&ui, 303, "AUTO COMPLETE MISSION", &m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled, scale);
 
             // ai entities assigned a unique team
-            UI_Checkbox(&ui, 303, "FREE FOR ALL", &m_featureset[CHEAT_AI_FFA].enabled, scale);          
+            UI_Checkbox(&ui, 304, "FREE FOR ALL", &m_featureset[CHEAT_AI_FFA].enabled, scale);          
 
             // assigns all ai to a seal unit for control
-            UI_Checkbox(&ui, 304, "AI FRIENDLY", &m_featureset[CHEAT_AI_FRIENDLY].enabled, scale);      
+            UI_Checkbox(&ui, 305, "AI FRIENDLY", &m_featureset[CHEAT_AI_FRIENDLY].enabled, scale);      
             
             // ai respawns on death
-            UI_Checkbox(&ui, 305, "AI RESPAWNS", &m_featureset[CHEAT_AI_RESPAWNS].enabled, scale);      
+            UI_Checkbox(&ui, 306, "AI RESPAWNS", &m_featureset[CHEAT_AI_RESPAWNS].enabled, scale);      
 
             // render ai pathing and  ( draws a cone on the ground from feet to vision distance , line for pathing and circle around for hearing distance ? )   
-            UI_Checkbox(&ui, 306, "AI VISION", &m_featureset[CHEAT_AI_VISION].enabled, scale);  
+            UI_Checkbox(&ui, 307, "AI VISION", &m_featureset[CHEAT_AI_VISION].enabled, scale);  
 
             break;
         }
@@ -2105,7 +2219,11 @@ static void ProcessPlayers(void* obj, void* ctx)
         SealJoinFireteam(entity, FT_BRAVO);
     }
 
-    if (isSealTeam || entity->m_ent.m_TeamMask == esp->seal->m_ent.m_TeamMask || entity->m_health <= 0.0f || CNode_Rendered(pNode) == 0)
+    if ( isSealTeam 
+        || isCharacter == false
+        || isAlive == false
+        || CNode_Rendered(pNode) == 0
+    )
         return;
     
     if (m_featureset[CHEAT_ESP].enabled  )
@@ -2284,6 +2402,15 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 
     ProcessPlayerFeatures(seal);
+
+    if (m_featureset[CHEAT_MATCH_SPAWN_BOT].enabled)
+    {
+        m_featureset[CHEAT_MATCH_SPAWN_BOT].enabled = false;
+
+        u32 id;
+        if (SpawnFriendlyAIBot("NightFyre", &id))
+            Notification("Spawned BOT", 0.0f);
+    }
 
     // aimbot
     if (m_featureset[CHEAT_AIMBOT].enabled  )

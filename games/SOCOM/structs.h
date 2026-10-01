@@ -307,6 +307,16 @@ enum
 	ENTITY_TURRET
 };
 
+typedef s8 SEAL_CONTROL_TYPE;
+enum
+{
+	CTRL_NONE,
+	CTRL_PLAYER,
+	CTRL_AI,
+	CTRL_SQUIRM,
+	CTRL_MISC
+};
+
 // ------------------------------------------------------------
 // Macros
 // ------------------------------------------------------------
@@ -904,6 +914,12 @@ static_assert(sizeof(CPickup) == 0x15, "Size of CPickup is not correct.");
 
 typedef struct __attribute__((packed))
 {
+	char pad_0000[128];
+} CCharacterType; //Size: 0x080
+static_assert(sizeof(CCharacterType) == 0x80);
+
+typedef struct __attribute__((packed))
+{
 	u32 vfTable; //0x0000
 	CZSealBody* p_entity; //0x0004
 	float mThrottle[3]; //0x0008
@@ -946,7 +962,9 @@ static_assert(sizeof(CTarget) == 0x28, "Size of CTarget is not correct.");
 
 typedef struct
 {
-	char pad_0000[16]; //0x0000
+	char pad_0000[4]; //0x0000
+	u32 m_id; // 0x0004
+	char pad_0005[8]; //0x0008
 	ENTITY_TYPE mEntityType; //0x0010
 	char pad_0011[3]; //0x0011
 	char* p_Name; //0x0014
