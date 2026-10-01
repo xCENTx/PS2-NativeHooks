@@ -1,6 +1,7 @@
 #ifndef SOCOM_COMMON_H
 #define SOCOM_COMMON_H
 
+#include <stddef.h>
 #include <stdbool.h>
 
 
