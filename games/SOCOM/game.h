@@ -3,34 +3,30 @@
 
 #include "structs.h"
 
-#define DefineFunction(name, ret, params, addr) typedef ret (*name##_t) params; static const name##_t name = (name##_t)(addr)
-#define CallFunction(ret, params, addr) ((ret (*) params)(addr))
-
 #define ELF_PATH "cdrom0:\\SCUS_971.34;1"
 
 // ------------------------------------------------------------
 // Globals
 // ------------------------------------------------------------
-#define gHud 0x48E594
-#define gWorld 0x48D848
-#define gCamera 0x51E778
-#define gSealArray 0x4D46A0
-#define gPickupArray 0x51E970
-#define gAppCamera 0x48D488
-#define tickAnimFireWeapon 0x1B7C90
-#define g_GS_Z_OFFSET 0x0048CF50
-#define g_theMission 0x4D4880
-
-#define g_MessageQue 0x4D4990
-
-#define g_vft_BatchRelocator 0x48A520
-#define g_vft_2DString_2 0x48A730
-#define g_CInput_pads 0x48C8D0
-
-#define g_theNetwork_2 0x52A5A9
-#define g_tagFirepoint_default 0x46B500
-#define g_tagFirepoint_203 0x46B4F0
-#define g_net_isHost 0x52A5A8
+#define gHud                        0x0048E594
+#define gWorld                      0x0048D848
+#define gCamera                     0x0051E778
+#define gSealArray                  0x004D46A0
+#define gPickupArray                0x0051E970
+#define gAppCamera                  0x0048D488
+#define tickAnimFireWeapon          0x001B7C90
+#define g_GS_Z_OFFSET               0x0048CF50
+#define g_theMission                0x004D4880
+#define g_MessageQue                0x004D4990
+#define g_vft_BatchRelocator        0x0048A520
+#define g_vft_2DString_2            0x0048A730
+#define g_CInput_pads               0x0048C8D0
+#define g_theNetwork_2              0x0052A5A9
+#define g_tagFirepoint_default      0x0046B500
+#define g_tagFirepoint_203          0x0046B4F0
+#define g_net_isHost                0x0052A5A8
+#define g_gameVersion_1             0x00455C48
+#define g_gameVersion_2             0x005BE6A0
 
 
 // ------------------------------------------------------------
@@ -88,6 +84,7 @@ DefineFunction(CZSealBody_CheckDIShoot, void, (CZSealBody* seal, s64 a2, s32 a3)
 DefineFunction(CZSealBody_GetFirepointPos, bool, (CZSealBody* seal, f32* outPosition, s64 a3), 0x002D1720);
 DefineFunction(CZSealBody_TeleportTo, s64, (CZSealBody* seal, const Matrix4x4* matrix), 0x002537D0);
 
+DefineHookFor(CZSealBody_CheckDIShoot);
 
 //
 // ============================================================================
@@ -111,6 +108,7 @@ DefineFunction(CZKit_WeaponIsGrenadeLauncherMode, bool, (CZKit* kit, s64 a2), 0x
 DefineFunction(CZKit_HandleFireWeapon, void, (CZKit* kit, s64 a2, s64 a3, f32 a4), 0x002B7730);
 DefineFunction(CZKit_WillFireWeapon, void, (CZKit* kit, f32 a2), 0x002B9140);
 
+DefineHookFor(CZKit_HandleFireWeapon);
 
 //
 // ============================================================================
@@ -207,12 +205,22 @@ DefineFunction(CHUD_PauseGame, u64, (), 0x003D9DF0);
 
 //
 // ============================================================================
+//  GAME / MISSION
+// ============================================================================
+//
+DefineFunction(CMission_OnMissionComplete, void, (CMission* pMission, MISSION_STATE dwResult), 0x001F8580);
+DefineHookFor(CMission_OnMissionComplete);
+
+
+//
+// ============================================================================
 //  MULTIPLAYER / MLS / NETCODE
 // ============================================================================
 //
 
 // executed whenever the player toggles ready - hook for force start
 DefineFunction(CZPersonaState_ToggleReady, void, (void), 0x0020B7D0);
+DefineHookFor(CZPersonaState_ToggleReady);
 
 // force starts the lobby into prematch state with 10 second countdown
 DefineFunction(UIForceMPLaunch, u64, (void), 0x001D4DA0);
@@ -257,8 +265,5 @@ char* launch_flag[] =
 {
     "--none",
 };
-
-
-
 
 #endif

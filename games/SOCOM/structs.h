@@ -1,24 +1,7 @@
-// structs.h
 #ifndef SOCOM_STRUCTS_H
 #define SOCOM_STRUCTS_H
 
-// ------------------------------------------------------------
-// Primitive types
-// ------------------------------------------------------------
-
-typedef signed char        s8;
-typedef unsigned char      u8;
-
-typedef signed short       s16;
-typedef unsigned short     u16;
-
-typedef signed int         s32;
-typedef unsigned int       u32;
-
-typedef signed long long   s64;
-typedef unsigned long long u64;
-
-typedef float              f32;
+#include "common.h"
 
 // ------------------------------------------------------------
 // Forward declarations
@@ -160,7 +143,7 @@ enum
 
 };
 
-typedef s8 FT_COMMAND;
+typedef s32 FT_COMMAND;
 enum
 {
 	unknown = 0,
@@ -317,6 +300,17 @@ enum
 	CTRL_MISC
 };
 
+typedef s8 MISSION_STATE;
+enum 
+{
+	MISSION_UNLOADED,
+	MISSION_RUNNING,
+	MISSION_SUCCESS,
+	MISSION_FAILURE,
+	MISSION_ABORTED,
+	MISSION_TIMEOUT
+};
+
 // ------------------------------------------------------------
 // Macros
 // ------------------------------------------------------------
@@ -379,7 +373,7 @@ typedef struct
 	float min; //0x0000
 	float range; //0x0004
 } RFloat; //Size: 0x0008
-static_assert(sizeof(RFloat) == 0x8);
+static_assert(sizeof(RFloat) == 0x8, "Size of RFloat is not correct.");
 
 // ------------------------------------------------------------
 // Drawing Primitives
@@ -684,7 +678,6 @@ typedef struct
 	char description[128]; //0x0040
 	s32 recoWordId; //0x00C0
 	FT_COMMAND command; //0x00C4
-	char pad_00C5[3]; //0x00C5
 	s32 teamMask; //0x00C8
 	bool multiplayerFlag; //0x00CC
 	char pad_00CD[3]; //0x00CD
@@ -770,6 +763,18 @@ struct __attribute__((packed)) CNode
 	char pad_00B8[8]; //0x00B8
 };
 static_assert(sizeof(CNode) == 0x00C0, "Size of CNode is not correct.");
+
+
+// ------------------------------------------------------------
+// CMission
+// ------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+	char pad_0000[24];
+	MISSION_STATE m_state; // 0x0018
+} CMission;
+static_assert(sizeof(CMission) == 0x001C, "Size of CMission is not correct.");
 
 
 // ------------------------------------------------------------
@@ -911,6 +916,21 @@ static_assert(sizeof(CPickup) == 0x15, "Size of CPickup is not correct.");
 // ------------------------------------------------------------
 // Seal
 // ------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+	f32 weather_factor; // 0x0000
+	FT_COMMAND fireteam_command; // 0x0004
+	f32 recycle_range; // 0x0008
+	f32 recycle_time; // 0x000C
+	f32 respawn_time; // 0x0010
+	f32 respawn_fade; // 0x0014
+	f32 respawn_range; // 0x0018
+	f32 player_grid_spacing; // 0x001C
+	s32 player_grid_count; // 0x0020
+} AI_PARAMS; //Size: 0x0024
+static_assert(sizeof(AI_PARAMS) == 0x24, "Size of AI_PARAMS is not correct.");
+
 
 typedef struct __attribute__((packed))
 {
