@@ -2018,6 +2018,133 @@ void Patches_Tick(void)
     );
 }
 
+//
+// ------------------------------------------------------------
+// Hooker
+// ------------------------------------------------------------
+//
+
+typedef enum
+{
+    HOOK_TYPE_NONE = 0,
+    HOOK_TYPE_J,
+    HOOK_TYPE_JAL
+} HookType;
+
+typedef struct
+{
+    u32 address;            // Address being hooked.
+    u32 original;           // Original instruction.
+    u32 target;             // Hook target.
+    HookType type;
+    bool installed;
+} Hook;
+
+
+// ------------------------------------------------------------
+// Hooker - Instruction Encoding
+// ------------------------------------------------------------
+
+static inline u32 Hook_MakeJ(u32 target)
+{
+    return 0x08000000u |
+        ((target >> 2) & 0x03FFFFFFu);
+}
+
+static inline u32 Hook_MakeJAL(u32 target)
+{
+    return 0x0C000000u |
+        ((target >> 2) & 0x03FFFFFFu);
+}
+
+
+// ------------------------------------------------------------
+// Hooker - Initialization
+// ------------------------------------------------------------
+
+static inline void Hook_Init( Hook* hook, u32 address, u32 target, HookType type)
+{
+    hook->address   = address;
+    hook->original  = 0;
+    hook->target    = target;
+    hook->type      = type;
+    hook->installed = false;
+}
+
+
+// ------------------------------------------------------------
+// Hooker - Installation
+// ------------------------------------------------------------
+
+static inline bool Hook_Install(Hook* hook)
+{
+    if (!hook)
+        return false;
+
+    if (hook->installed)
+        return true;
+
+    //
+    // Save the original instruction so the hook can
+    // later be removed without hardcoding restore values.
+    //
+    hook->original = Patch_ReadU32(hook->address);
+
+    switch (hook->type)
+    {
+        case HOOK_TYPE_J:
+            Patch_J( hook->address, hook->target );
+            break;
+
+        case HOOK_TYPE_JAL:
+            Patch_JAL( hook->address, hook->target );
+            break;
+
+        default:
+            return false;
+    }
+
+    hook->installed = true;
+
+    return true;
+}
+
+
+// ------------------------------------------------------------
+// Hooker - Removal
+// ------------------------------------------------------------
+
+static inline bool Hook_Remove(Hook* hook)
+{
+    if (!hook)
+        return false;
+
+    if (!hook->installed)
+        return true;
+
+    Patch_Instruction( hook->address, hook->original );
+
+    hook->installed = false;
+
+    return true;
+}
+
+
+// ------------------------------------------------------------
+// Hooker - Helpers
+// ------------------------------------------------------------
+
+static inline bool Hook_IsInstalled(const Hook* hook)
+{
+    return hook && hook->installed;
+}
+
+static inline u32 Hook_GetOriginal(const Hook* hook)
+{
+    return hook ? hook->original : 0;
+}
+
+
 // ------------------------------------------------------------
 // Menu
 // ------------------------------------------------------------
