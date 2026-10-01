@@ -54,7 +54,7 @@ def overlaps_feature_array(address, feature_addr, feature_size):
     )
 
 
-if len(sys.argv) < 9:
+if len(sys.argv) < 11:
     print(
         f"Usage: python3 {sys.argv[0]} "
         "<code_cave> "
@@ -63,6 +63,7 @@ if len(sys.argv) < 9:
         "<featureset_address> "
         "<hook1_address> <hook1_target> "
         "<hook2_address> <hook2_target>"
+        "<hook3_address> <hook3_target>"
     )
     sys.exit(1)
 
@@ -79,13 +80,16 @@ CHECKDISHOOT_TARGET = int(sys.argv[6], 0)
 HANDLEFIREWEAPON_HOOK_ADDR = int(sys.argv[7], 0)
 HANDLEFIREWEAPON_TARGET = int(sys.argv[8], 0)
 
+TOGGLEREADY_HOOK_ADDR = int(sys.argv[9], 0)
+TOGGLEREADY_TARGET = int(sys.argv[10], 0)
+
 
 # Optional additions: original eight positional arguments still work unchanged.
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--mutable-range', nargs=2, type=lambda value: int(value, 0))
 parser.add_argument('--hook', nargs=2, action='append', default=[], type=lambda value: int(value, 0))
 parser.add_argument('--restore', nargs=2, action='append', default=[], type=lambda value: int(value, 0))
-extra = parser.parse_args(sys.argv[9:])
+extra = parser.parse_args(sys.argv[11:])
 
 
 #
@@ -144,6 +148,10 @@ try:
         HANDLEFIREWEAPON_TARGET
     )
 
+    toggleready_jal = make_jal(
+        TOGGLEREADY_TARGET
+    )
+
 except ValueError as e:
     print(f"Error: {e}")
     sys.exit(1)
@@ -157,13 +165,22 @@ with open(OUTPUT_FILE, "w") as out:
     out.write(
         "[NATIVE-MENU\\DISABLE]\n"
         "author=NightFyre\n"
-        "description=\n"
-        "patch=1,EE,201EBF20,extended,0C0A9D24\n"
+        "description=clean up\n"
     )
 
-    # Restore the original HandleFireWeapon call as well as CheckDIShoot.
-    write_patch(out, HANDLEFIREWEAPON_HOOK_ADDR, make_jal(0x002B7730))
-    # Supply original instructions here for additional menu hooks when known.
+    #
+    # Restore original game instructions.
+    #
+
+    # CCameraApp::Tick -> CZSealBody::CheckDIShoot
+    write_patch( out, CHECKDISHOOT_HOOK_ADDR, 0x0C0A9D24 )
+
+    # CZKit -> HandleFireWeapon
+    write_patch( out, HANDLEFIREWEAPON_HOOK_ADDR, make_jal(0x002B7730) )
+
+    # CZPersonaState -> ToggleReady
+    write_patch( out, TOGGLEREADY_HOOK_ADDR, 0x0C082DF4 )
+
     for site, original_word in extra.restore:
         write_patch(out, site, original_word)
 
@@ -200,6 +217,19 @@ with open(OUTPUT_FILE, "w") as out:
         out,
         HANDLEFIREWEAPON_HOOK_ADDR,
         handlefireweapon_jal
+    )
+
+    #
+    # CZPersona hook
+    #
+    # Replace original call with:
+    #
+    #     jal hk_ToggleReady
+    #
+    write_patch(
+        out,
+        TOGGLEREADY_HOOK_ADDR,
+        toggleready_jal
     )
 
     for site, target in extra.hook:
@@ -257,6 +287,13 @@ print(
     f"    0x{HANDLEFIREWEAPON_HOOK_ADDR:08X}"
     f" -> 0x{HANDLEFIREWEAPON_TARGET:08X}"
     f"  JAL={handlefireweapon_jal:08X}"
+)
+
+print(
+    f"  ToggleReady:\n"
+    f"    0x{TOGGLEREADY_HOOK_ADDR:08X}"
+    f" -> 0x{TOGGLEREADY_TARGET:08X}"
+    f"  JAL={toggleready_jal:08X}"
 )
 
 print()

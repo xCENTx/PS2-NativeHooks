@@ -2004,11 +2004,11 @@ void Patches_Tick(void)
     );
     
     // Force Start Match Patch
-    CheatStateUpdate(
-        &m_featureset[CHEAT_MATCH_FORCE_START],
-        Patch_ForceStart_enable,
-        Patch_ForceStart_disable
-    );
+    //  CheatStateUpdate(
+    //      &m_featureset[CHEAT_MATCH_FORCE_START],
+    //      Patch_ForceStart_enable,
+    //      Patch_ForceStart_disable
+    //  );
 
     // Never Ending Match Patch
     CheatStateUpdate(
@@ -2501,5 +2501,15 @@ void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
 
     CZKit_HandleFireWeapon(kit, a2, a3, a4);
 }
+
+__attribute__((section(".hook_force_start"), noinline))
+void hk_ToggleReady(void)
+{
+    CZPersonaState_ToggleReady();
+
+    if (m_featureset[CHEAT_MATCH_FORCE_START].enabled)
+        UIForceMPLaunch();
+}
+
 // Keep the original single-source build. Header guards prevent repeated game definitions.
 #include "ui.c"

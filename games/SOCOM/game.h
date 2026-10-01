@@ -205,6 +205,18 @@ DefineFunction(recoTick, u64, (void), 0x00352B70);
 DefineFunction(CHUD_PauseGame, u64, (), 0x003D9DF0);
 
 
+//
+// ============================================================================
+//  MULTIPLAYER / MLS / NETCODE
+// ============================================================================
+//
+
+// executed whenever the player toggles ready - hook for force start
+DefineFunction(CZPersonaState_ToggleReady, void, (void), 0x0020B7D0);
+
+// force starts the lobby into prematch state with 10 second countdown
+DefineFunction(UIForceMPLaunch, u64, (void), 0x001D4DA0);
+
 // ------------------------------------------------------------
 // Constants
 // ------------------------------------------------------------

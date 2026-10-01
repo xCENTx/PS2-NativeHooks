@@ -19,6 +19,7 @@ CODE_CAVE=0x00097000
 # Original game JAL locations.
 CHECKDISHOOT_HOOK_ADDR=0x001EBF20
 HANDLEFIREWEAPON_HOOK_ADDR=0x002B927C
+TOGGLEREADY_HOOK_ADDR=0x001D4AC4
 
 # Fill in RETAIL call sites when reversed (not native function entry addresses).
 # Zero leaves that additional hook uninstalled; the original two hooks remain.
@@ -64,6 +65,11 @@ HANDLEFIREWEAPON_ADDR=$(
     awk '$3 == "hk_HandleFireWeapon" { print "0x"$1; exit }'
 )
 
+TOGGLEREADY_ADDR=$(
+    $NM -n "$ELF" |
+    awk '$3 == "hk_ToggleReady" { print "0x"$1; exit }'
+)
+
 FEATURESET_ADDR=$(
     $NM -n "$ELF" |
     awk '$3 == "m_featureset" { print "0x"$1; exit }'
@@ -79,6 +85,11 @@ if [ -z "$HANDLEFIREWEAPON_ADDR" ]; then
     exit 1
 fi
 
+if [ -z "$TOGGLEREADY_ADDR" ]; then
+    echo "Error: Could not find hk_ToggleReady in $ELF"
+    exit 1
+fi
+
 if [ -z "$FEATURESET_ADDR" ]; then
     echo "Error: Could not find m_featureset in $ELF"
     exit 1
@@ -86,9 +97,10 @@ fi
 
 echo
 echo "Resolved hook addresses:"
-echo "  hk_CheckDIShoot   = $CHECKDISHOOT_ADDR"
+echo "  hk_CheckDIShoot     = $CHECKDISHOOT_ADDR"
 echo "  hk_HandleFireWeapon = $HANDLEFIREWEAPON_ADDR"
-echo "  m_featureset      = $FEATURESET_ADDR"
+echo "  hk_ToggleReady      = $TOGGLEREADY_ADDR"
+echo "  m_featureset        = $FEATURESET_ADDR"
 echo
 
 
@@ -118,6 +130,7 @@ $OBJCOPY \
     -O binary \
     -j .hook \
     -j .hook_teleport \
+    -j .hook_force_start \
     -j .hook_menu \
     -j .hook_input \
     -j .hook_pause \
@@ -140,6 +153,8 @@ python3 GENPnach.py \
     "$CHECKDISHOOT_ADDR" \
     "$HANDLEFIREWEAPON_HOOK_ADDR" \
     "$HANDLEFIREWEAPON_ADDR" \
+    "$TOGGLEREADY_HOOK_ADDR" \
+    "$TOGGLEREADY_ADDR" \
     "${MENU_ARGS[@]}"
 
 echo
