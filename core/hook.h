@@ -32,6 +32,7 @@ void* Hook_GetOriginal(const Hook* hook);
 #define DefineHookFor(name) static Hook name##_Hook; static name##_t name##_Original = NULL
 #define DefineHook(name, ret, params, addr) DefineFunction(name, ret, params, addr); DefineHookFor(name)
 #define CreateDetour(name, replacement) do { Hook_Init(&name##_Hook, HOOK_TYPE_FUNCTION, (u32)(name), (u32)(replacement)); if (Hook_Create(&name##_Hook)) name##_Original = (name##_t)Hook_GetOriginal(&name##_Hook); } while (0)
+#define CreateDetourChecked(name, replacement) ({ CreateDetour(name, replacement); Hook_IsCreated(&name##_Hook); })
 #define RemoveDetour(name) do { if (Hook_Remove(&name##_Hook)) name##_Original = NULL; } while (0)
 #define CreateCall(hook, address, replacement) (Hook_Init(&(hook), HOOK_TYPE_CALL, (u32)(address), (u32)(replacement)), Hook_Create(&(hook)))
 #define RemoveCall(hook) Hook_Remove(&(hook))

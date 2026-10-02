@@ -2460,16 +2460,16 @@ static volatile bool g_bNativeHooksRunning = false;
 
 static bool NativeHooks_Init(void)
 {
-    if (!CreateDetour(CZKit_HandleFireWeapon, hk_HandleFireWeapon))
+    if (!CreateDetourChecked(CZKit_HandleFireWeapon, hk_HandleFireWeapon))
         return false;
 
-    if (!CreateDetour(CZPersonaState_ToggleReady, hk_ToggleReady))
+    if (!CreateDetourChecked(CZPersonaState_ToggleReady, hk_ToggleReady))
         return false;
 
-    if (!CreateDetour(CMission_OnMissionComplete, hk_OnMissionComplete))
+    if (!CreateDetourChecked(CMission_OnMissionComplete, hk_OnMissionComplete))
         return false;
 
-    if (!CreateDetour(CZSealBody_CheckDIShoot, hk_CheckDIShoot))
+    if (!CreateDetourChecked(CZSealBody_CheckDIShoot, hk_CheckDIShoot))
         return false;
 
     MenuEnsureInitialized();
