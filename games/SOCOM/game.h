@@ -83,6 +83,17 @@ typedef s32 (*AlarmCallback_t)(s32 alarm_id, u16 time, void* common);
 DefineFunction(CNode_Rendered, bool, (CNode* node), 0x0022A4B0);
 DefineFunction(CNode_SetName, void, (CNode* node, const char* name), 0x00229C50);
 
+
+
+//
+// ============================================================================
+//  CAMERA
+// ============================================================================
+//
+
+DefineFunction(CAppCamera_Tick, void, (CAppCamera* camera), 0x0022B000);
+
+
 //
 // ============================================================================
 //  PLAYER / ENTITY
@@ -110,7 +121,7 @@ DefineFunction(CZSealBody_GetCharacter, CCharacterType*, (CZSealBody* seal), 0x0
 DefineFunction(CZSealBody_CheckDIShoot, void, (CZSealBody* seal, s64 a2, s32 a3), 0x002A7490);
 DefineFunction(CZSealBody_GetFirepointPos, bool, (CZSealBody* seal, f32* outPosition, s64 a3), 0x002D1720);
 DefineFunction(CZSealBody_TeleportTo, s64, (CZSealBody* seal, const Matrix4x4* matrix), 0x002537D0);
-
+DefineFunction(CZSealBody_Tick, void, (CZSealBody* seal, float deltaTime), 0x0025B160);
 
 //
 // ============================================================================
