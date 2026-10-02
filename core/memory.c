@@ -1,5 +1,4 @@
-#include "Memory.h"
-#include "Game.h"
+#include "memory.h"
 
 u8 Memory_ReadU8(u32 address) { return *(volatile u8*)address; }
 

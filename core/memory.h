@@ -23,7 +23,7 @@ void Memory_MakeNOP(u32 address);
 void Memory_MakeJump(u32 address, u32 target);
 void Memory_MakeCall(u32 address, u32 target);
 
-typedef void (*MemoryFlushCacheFn)(int mode);
+typedef s32 (*MemoryFlushCacheFn)(s32 mode);
 void Memory_SetFlushCacheFunction(MemoryFlushCacheFn function);
 void Memory_FlushCache(void);
 

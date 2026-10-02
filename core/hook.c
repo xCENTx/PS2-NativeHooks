@@ -1,4 +1,4 @@
-#include "Hook.h"
+#include "hook.h"
 
 #define HOOK_TRAMPOLINE_INSTRUCTIONS    4
 #define HOOK_MAX_TRAMPOLINES            16
@@ -45,7 +45,7 @@ void Hook_Init(Hook* hook, HOOK_TYPE type, u32 address, u32 target)
     hook->installed = false;
 }
 
-bool Hook_Install(Hook* hook)
+bool Hook_Create(Hook* hook)
 {
     if (!hook)
         return false;
@@ -167,7 +167,7 @@ bool Hook_Remove(Hook* hook)
     return true;
 }
 
-bool Hook_IsInstalled(const Hook* hook)
+bool Hook_IsCreated(const Hook* hook)
 {
     if (!hook)
         return false;
