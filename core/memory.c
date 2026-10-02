@@ -36,6 +36,33 @@ void Memory_WriteFloat(u32 address, f32 value) { *(volatile f32*)address = value
 // ============================================================================
 //
 
+u32 Memory_GetGP(void)
+{
+    u32 value;
+
+    __asm__ volatile( "move %0, $gp" : "=r"(value) );
+
+    return value;
+}
+
+u32 Memory_GetSP(void)
+{
+    u32 value;
+
+    __asm__ volatile( "move %0, $sp" : "=r"(value) );
+
+    return value;
+}
+
+u32 Memory_GetRA(void)
+{
+    u32 value;
+
+    __asm__ volatile( "move %0, $ra" : "=r"(value) );
+
+    return value;
+}
+
 //
 // ============================================================================
 //  INSTRUCTION ENCODING
