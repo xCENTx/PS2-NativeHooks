@@ -1,13 +1,14 @@
 #ifndef NATIVEHOOKS_UI_H
 #define NATIVEHOOKS_UI_H
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+
 #ifdef UI_HOST_TEST
 #include "ui_test_types.h"
 #else
-#include "games/SOCOM/structs.h"
-#include "games/SOCOM/game.h"
+#include "game.h"
 #endif
 
 /* Set to 1 to show the input diagnostic overlay again. */

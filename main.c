@@ -1,12 +1,16 @@
-#include <stdbool.h>
-#include <assert.h>
-#include "games/SOCOM/structs.h"
-#include "games/SOCOM/game.h"
+#include "game.h"
+#include "hook.h"
 #include "ui.h"
 
 // ------------------------------------------------------------
 // statics
 // ------------------------------------------------------------
+
+#define NATIVE_THREAD_STACK_SIZE 0x4000
+
+__attribute__((section(".thread_stack"), aligned(16)))
+static u8 g_NativeThreadStack[NATIVE_THREAD_STACK_SIZE];
+static volatile s32 g_NativeThreadId = -1;
 
 #define BONE_INVALID (-1)
 static const s32 BoneChains[][6] =
@@ -2285,12 +2289,84 @@ static void ProcessPlayerFeatures(CZSealBody* seal)
 // HOOKS
 // ------------------------------------------------------------
 
+DefineHookFor(CZSealBody_CheckDIShoot);
+DefineHookFor(CZKit_HandleFireWeapon);
+DefineHookFor(zVid_ZTestOn);
+DefineHookFor(recoTick);
+DefineHookFor(CHUD_PauseGame);
+DefineHookFor(CMission_OnMissionComplete);
+DefineHookFor(CZPersonaState_ToggleReady);
+
+__attribute__((noinline))
+void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
+{
+
+    MenuEnsureInitialized();
+
+    Vec3 firepoint;
+    CZSealBody* local_seal = ftsGetPlayer();
+    CZSealBody* this_seal = (CZSealBody*)kit->pSealBody;
+    bool validAim = local_seal && (local_seal->m_AimWorldPos.x != 0.0f || local_seal->m_AimWorldPos.y != 0.0f || local_seal->m_AimWorldPos.z != 0.0f);
+
+    if (m_featureset[CHEAT_TELEPORT_TO_XHAIR].enabled  
+        && local_seal && local_seal == this_seal 
+        && validAim
+        && GetMuzzleWorldLocation(local_seal, &firepoint)
+    )
+    {
+        Matrix4x4 teleport = local_seal->m_ent.m_Matrix;
+        
+        //  target location
+        teleport.m[3][0] = local_seal->m_ReticlePt.x;
+        teleport.m[3][1] = local_seal->m_ReticlePt.y;
+        teleport.m[3][2] = local_seal->m_ReticlePt.z;
+
+        // Teleport
+        CZSealBody_TeleportTo(local_seal, &teleport);
+
+        Notification("Teleporting to location", 0.0f);
+
+        return;
+    }
+
+    CZKit_HandleFireWeapon_Original(kit, a2, a3, a4);
+}
+
+__attribute__((noinline))
+void hk_ToggleReady(void)
+{
+    CZPersonaState_ToggleReady_Original();
+
+    if (m_featureset[CHEAT_MATCH_FORCE_START].enabled)
+        UIForceMPLaunch();
+}
+
+__attribute__((noinline))
+void hk_OnMissionComplete(CMission* pMission, MISSION_STATE dwState)
+{
+    bool bSafe = dwState == MISSION_UNLOADED || dwState == MISSION_ABORTED || dwState == MISSION_TIMEOUT;
+
+    if (bSafe || m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled) 
+    {
+        CMission_OnMissionComplete_Original(pMission, dwState);
+        return;
+    }
+    
+    if ( m_featureset[CHEAT_MATCH_NEVER_ENDS].enabled)
+    {
+        return;
+    }
+
+    CMission_OnMissionComplete_Original(pMission, dwState);
+}
+
 __attribute__((noinline))
 void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 {
+
     MenuEnsureInitialized();
-    CZSealBody_CheckDIShoot(seal, a2, a3);
-    Patches_Tick(); // process patches
+    
+    CZSealBody_CheckDIShoot_Original(seal, a2, a3);
 
     if (seal == 0 || seal != ftsGetPlayer())
         return;
@@ -2374,84 +2450,138 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 }
 
-//
-__attribute__((noinline))
-void hk_HandleFireWeapon(CZKit* kit, s64 a2, s64 a3, float a4)
+static bool NativeHooks_Init(void)
 {
+    if (!CreateDetour(CZKit_HandleFireWeapon, hk_HandleFireWeapon))
+        return false;
+
+    if (!CreateDetour(CZPersonaState_ToggleReady, hk_ToggleReady))
+        return false;
+
+    if (!CreateDetour(CMission_OnMissionComplete, hk_OnMissionComplete))
+        return false;
+
+    if (!CreateDetour(CZSealBody_CheckDIShoot, hk_CheckDIShoot))
+        return false;
 
     MenuEnsureInitialized();
 
-    Vec3 firepoint;
-    CZSealBody* local_seal = ftsGetPlayer();
-    CZSealBody* this_seal = (CZSealBody*)kit->pSealBody;
-    bool validAim = local_seal && (local_seal->m_AimWorldPos.x != 0.0f || local_seal->m_AimWorldPos.y != 0.0f || local_seal->m_AimWorldPos.z != 0.0f);
+    Memory_FlushCache();
 
-    if (m_featureset[CHEAT_TELEPORT_TO_XHAIR].enabled  
-        && local_seal && local_seal == this_seal 
-        && validAim
-        && GetMuzzleWorldLocation(local_seal, &firepoint)
-    )
-    {
-        Matrix4x4 teleport = local_seal->m_ent.m_Matrix;
-        
-        //  target location
-        teleport.m[3][0] = local_seal->m_ReticlePt.x;
-        teleport.m[3][1] = local_seal->m_ReticlePt.y;
-        teleport.m[3][2] = local_seal->m_ReticlePt.z;
-
-        // Teleport
-        CZSealBody_TeleportTo(local_seal, &teleport);
-
-        Notification("Teleporting to location", 0.0f);
-
-        return;
-    }
-
-    CZKit_HandleFireWeapon(kit, a2, a3, a4);
+    return true;
 }
 
-__attribute__((noinline))
-void hk_ToggleReady(void)
+static volatile bool g_bNativeHooksRunning = false;
+static void NativeHooks_Shutdown(void)
 {
-    CZPersonaState_ToggleReady_Original();
+    g_bNativeHooksRunning = false;
 
-    if (m_featureset[CHEAT_MATCH_FORCE_START].enabled)
-        UIForceMPLaunch();
+    RemoveDetour(CZKit_HandleFireWeapon);
+    RemoveDetour(CZPersonaState_ToggleReady);
+    RemoveDetour(CMission_OnMissionComplete);
+    RemoveDetour(CZSealBody_CheckDIShoot);
+
+    Memory_FlushCache();
 }
 
-__attribute__((noinline))
-void hk_OnMissionComplete(CMission* pMission, MISSION_STATE dwState)
+static void NativeHooks_Thread(void* arg)
 {
-    bool bSafe = dwState == MISSION_UNLOADED || dwState == MISSION_ABORTED || dwState == MISSION_TIMEOUT;
+    (void)arg;
 
-    if (bSafe || m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled) 
+    g_bNativeHooksRunning = NativeHooks_Init();
+
+    while (g_bNativeHooksRunning)
     {
-        CMission_OnMissionComplete_Original(pMission, dwState);
-        return;
+        Patches_Tick(); // process patches
+     
+        mcDelayThread(500);    // H-SYNC
     }
     
-    if ( m_featureset[CHEAT_MATCH_NEVER_ENDS].enabled)
+    NativeHooks_Shutdown();
+
+    g_NativeThreadId = -1;
+
+    ExitDeleteThread();
+}
+
+static s32 NativeHooks_CreateThread(void)
+{
+    ee_thread_t thread = { 0 };
+
+    thread.func             = NativeHooks_Thread;
+    thread.stack            = g_NativeThreadStack;
+    thread.stack_size       = sizeof(g_NativeThreadStack);
+    thread.gp_reg           = NULL;
+    thread.initial_priority = 0x40;
+
+    s32 threadId = CreateThread(&thread);
+
+    if (threadId < 0)
+        return threadId;
+
+    s32 result = StartThread(threadId, NULL);
+
+    if (result < 0)
     {
-        return;
+        DeleteThread(threadId);
+        return result;
     }
 
-    CMission_OnMissionComplete_Original(pMission, dwState);
+    g_NativeThreadId = threadId;
+
+    return threadId;
+}
+
+static bool g_bNativeHooksBootstrapped  = false;
+#define BOOTSTRAP_CALL_ADDRESS  0x0020ED50
+__attribute__((section(".bootstrap"), noinline))
+s64 Bootstrap(CZNetwork* network)
+{
+    if (!g_bNativeHooksBootstrapped)
+    {
+        g_bNativeHooksBootstrapped  = true;
+
+        Memory_SetFlushCacheFunction(FlushCache);
+
+        NativeHooks_CreateThread();
+
+        // Restore CGame::Tick -> CZNetwork::zNetUpdate.
+        Memory_MakeCall(BOOTSTRAP_CALL_ADDRESS, (u32)CZNetwork_zNetUpdate);
+    }
+
+    return CZNetwork_zNetUpdate(network);
 }
 
 // ------------------------------------------------------------
 // MAIN
 // ------------------------------------------------------------
 
-void socom_thread(void)
+void socom_thread(void* argc)
 {
     Memory_SetFlushCacheFunction(FlushCache); // Set the function to flush the CPU cache
+
+    // init menu
+    MenuEnsureInitialized();
 
     // setup hooks
     CreateDetour(CZSealBody_CheckDIShoot, hk_CheckDIShoot);
     CreateDetour(CZKit_HandleFireWeapon, hk_HandleFireWeapon);
     CreateDetour(CMission_OnMissionComplete, hk_OnMissionComplete);
     CreateDetour(CZPersonaState_ToggleReady, hk_ToggleReady);
-}
 
-// Keep the original single-source build. Header guards prevent repeated game definitions.
-#include "ui.c"
+    // main loop
+    while(1)
+    {
+        Patches_Tick(); // process patches
+    }
+
+    // cleanup
+    MenuCleanup();
+    RemoveDetour(CZPersonaState_ToggleReady);
+    RemoveDetour(CMission_OnMissionComplete);
+    RemoveDetour(CZKit_HandleFireWeapon);
+    // RemoveDetour(CZSealBody_CheckDIShoot);
+
+
+    ExitDeleteThread();
+}
