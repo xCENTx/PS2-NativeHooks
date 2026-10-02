@@ -2450,6 +2450,14 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
     }
 }
 
+
+// ------------------------------------------------------------
+// NAITIVE HOOKS 
+// ------------------------------------------------------------
+
+static bool g_bNativeHooksBootstrapped  = false;
+static volatile bool g_bNativeHooksRunning = false;
+
 static bool NativeHooks_Init(void)
 {
     if (!CreateDetour(CZKit_HandleFireWeapon, hk_HandleFireWeapon))
@@ -2471,7 +2479,6 @@ static bool NativeHooks_Init(void)
     return true;
 }
 
-static volatile bool g_bNativeHooksRunning = false;
 static void NativeHooks_Shutdown(void)
 {
     g_bNativeHooksRunning = false;
@@ -2532,8 +2539,9 @@ static s32 NativeHooks_CreateThread(void)
     return threadId;
 }
 
-static bool g_bNativeHooksBootstrapped  = false;
+
 #define BOOTSTRAP_CALL_ADDRESS  0x0020ED50
+
 __attribute__((section(".bootstrap"), noinline))
 s64 Bootstrap(CZNetwork* network)
 {
@@ -2550,38 +2558,4 @@ s64 Bootstrap(CZNetwork* network)
     }
 
     return CZNetwork_zNetUpdate(network);
-}
-
-// ------------------------------------------------------------
-// MAIN
-// ------------------------------------------------------------
-
-void socom_thread(void* argc)
-{
-    Memory_SetFlushCacheFunction(FlushCache); // Set the function to flush the CPU cache
-
-    // init menu
-    MenuEnsureInitialized();
-
-    // setup hooks
-    CreateDetour(CZSealBody_CheckDIShoot, hk_CheckDIShoot);
-    CreateDetour(CZKit_HandleFireWeapon, hk_HandleFireWeapon);
-    CreateDetour(CMission_OnMissionComplete, hk_OnMissionComplete);
-    CreateDetour(CZPersonaState_ToggleReady, hk_ToggleReady);
-
-    // main loop
-    while(1)
-    {
-        Patches_Tick(); // process patches
-    }
-
-    // cleanup
-    MenuCleanup();
-    RemoveDetour(CZPersonaState_ToggleReady);
-    RemoveDetour(CMission_OnMissionComplete);
-    RemoveDetour(CZKit_HandleFireWeapon);
-    // RemoveDetour(CZSealBody_CheckDIShoot);
-
-
-    ExitDeleteThread();
 }
