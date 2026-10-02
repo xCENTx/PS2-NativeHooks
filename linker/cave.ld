@@ -2,14 +2,9 @@ SECTIONS
 {
     . = 0x00097000;
 
-    .hook :
+    .bootstrap :
     {
-        *(.hook)
-    }
-
-    .hook_teleport :
-    {
-        *(.hook_teleport)
+        *(.bootstrap)
     }
 
     .hook_menu : { *(.hook_menu) }
@@ -28,8 +23,13 @@ SECTIONS
         *(.srodata*)
     }
 
-    . = ALIGN(4);
+    . = ALIGN(16);
     __mutable_start = .;
+
+    .hooks :
+    {
+        *(.hooks)
+    }
 
     .cheats :
     {
@@ -49,12 +49,30 @@ SECTIONS
         *(.sbss*)
         *(COMMON)
     }
+
+    .thread_stack :
+    {
+        . = ALIGN(16);
+        *(.thread_stack)
+        . = ALIGN(16);
+    }
+
     .menu_state :
     {
         *(.menu_state)
         BYTE(0)
         . = ALIGN(4);
     }
+
     __mutable_end = .;
-    /DISCARD/ : { *(.comment) *(.note*) *(.pdr) *(.reginfo) *(.MIPS.abiflags) *(.eh_frame*) }
+
+    /DISCARD/ :
+    {
+        *(.comment)
+        *(.note*)
+        *(.pdr)
+        *(.reginfo)
+        *(.MIPS.abiflags)
+        *(.eh_frame*)
+    }
 }

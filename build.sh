@@ -6,8 +6,7 @@ CC=mips64r5900el-ps2-elf-gcc
 OBJCOPY=mips64r5900el-ps2-elf-objcopy
 NM=mips64r5900el-ps2-elf-nm
 
-SOURCE=main.c
-OBJECT=bin/SOCOM.o
+OBJECTS="bin/main.o bin/ui.o bin/memory.o bin/hook.o"
 ELF=bin/SOCOM.elf
 BINARY=bin/SOCOM.bin
 LINKER=linker/cave.ld
@@ -17,9 +16,7 @@ PNACH=bin/SOCOM.pnach
 CODE_CAVE=0x00097000
 
 # Original game JAL locations.
-CHECKDISHOOT_HOOK_ADDR=0x001EBF20
-HANDLEFIREWEAPON_HOOK_ADDR=0x002B927C
-TOGGLEREADY_HOOK_ADDR=0x001D4AC4
+ZNETUPDATE_HOOK_ADDR=0x0020ED50
 
 # Fill in RETAIL call sites when reversed (not native function entry addresses).
 # Zero leaves that additional hook uninstalled; the original two hooks remain.
@@ -36,38 +33,35 @@ if [ -z "$PS2SDK" ]; then
 fi
 
 mkdir -p bin
-# Native C interop settings. main.c includes ui.c, so still one object file.
+# Native EE payload compiler settings.
 CFLAGS='-O2 -std=gnu11 -G0 -mno-abicalls -fno-pic -ffreestanding -fno-builtin -fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables -fomit-frame-pointer
 -ffixed-$16 -ffixed-$17 -ffixed-$18 -ffixed-$19 -ffixed-$20 -ffixed-$21 -ffixed-$22 -ffixed-$23 -ffixed-$28 -ffixed-$30
--ffixed-$f20 -ffixed-$f21 -ffixed-$f22 -ffixed-$f23 -ffixed-$f24 -ffixed-$f25 -ffixed-$f26 -ffixed-$f27 -ffixed-$f28 -ffixed-$f29 -ffixed-$f30 -ffixed-$f31'
+-ffixed-$f20 -ffixed-$f21 -ffixed-$f22 -ffixed-$f23 -ffixed-$f24 -ffixed-$f25 -ffixed-$f26 -ffixed-$f27 -ffixed-$f28 -ffixed-$f29 -ffixed-$f30 -ffixed-$f31 -Icore -Igames/SOCOM'
 
 echo "[1/4] Compiling..."
-$CC $CFLAGS -c "$SOURCE" -o "$OBJECT"
+$CC $CFLAGS -c main.c \
+    -o bin/main.o
+$CC $CFLAGS -c ui.c \
+    -o bin/ui.o
+$CC $CFLAGS -c core/memory.c \
+    -o bin/memory.o
+$CC $CFLAGS -c core/hook.c \
+    -o bin/hook.o
 
 echo "[2/4] Linking..."
 $CC -G0 -mno-abicalls -fno-pic \
     -nostdlib \
     -nostartfiles \
     -T "$LINKER" \
-    "$OBJECT" \
+    $OBJECTS \
     -o "$ELF"
 
 #
 # Resolve the actual linked addresses of our hook functions.
 #
-CHECKDISHOOT_ADDR=$(
+BOOTSTRAP_ADDR=$(
     $NM -n "$ELF" |
-    awk '$3 == "hk_CheckDIShoot" { print "0x"$1; exit }'
-)
-
-HANDLEFIREWEAPON_ADDR=$(
-    $NM -n "$ELF" |
-    awk '$3 == "hk_HandleFireWeapon" { print "0x"$1; exit }'
-)
-
-TOGGLEREADY_ADDR=$(
-    $NM -n "$ELF" |
-    awk '$3 == "hk_ToggleReady" { print "0x"$1; exit }'
+    awk '$3 == "Bootstrap" { print "0x"$1; exit }'
 )
 
 FEATURESET_ADDR=$(
@@ -75,18 +69,8 @@ FEATURESET_ADDR=$(
     awk '$3 == "m_featureset" { print "0x"$1; exit }'
 )
 
-if [ -z "$CHECKDISHOOT_ADDR" ]; then
-    echo "Error: Could not find hk_CheckDIShoot in $ELF"
-    exit 1
-fi
-
-if [ -z "$HANDLEFIREWEAPON_ADDR" ]; then
-    echo "Error: Could not find hk_HandleFireWeapon in $ELF"
-    exit 1
-fi
-
-if [ -z "$TOGGLEREADY_ADDR" ]; then
-    echo "Error: Could not find hk_ToggleReady in $ELF"
+if [ -z "$BOOTSTRAP_ADDR" ]; then
+    echo "Error: Could not find Bootstrap in $ELF"
     exit 1
 fi
 
@@ -97,13 +81,9 @@ fi
 
 echo
 echo "Resolved hook addresses:"
-echo "  hk_CheckDIShoot     = $CHECKDISHOOT_ADDR"
-echo "  hk_HandleFireWeapon = $HANDLEFIREWEAPON_ADDR"
-echo "  hk_ToggleReady      = $TOGGLEREADY_ADDR"
+echo "  Bootstrap           = $BOOTSTRAP_ADDR"
 echo "  m_featureset        = $FEATURESET_ADDR"
 echo
-
-
 
 
 # Additional menu symbols use the same nm lookup as your original hooks.
@@ -128,14 +108,14 @@ fi
 echo "[3/4] Extracting payload..."
 $OBJCOPY \
     -O binary \
-    -j .hook \
-    -j .hook_teleport \
-    -j .hook_force_start \
+    -j .bootstrap \
     -j .hook_menu \
     -j .hook_input \
     -j .hook_pause \
     -j .text \
     -j .rodata \
+    -j .thread_stack \
+    -j .hooks \
     -j .cheats \
     -j .data \
     -j .bss \
@@ -149,12 +129,8 @@ python3 GENPnach.py \
     "$BINARY" \
     "$PNACH" \
     "$FEATURESET_ADDR" \
-    "$CHECKDISHOOT_HOOK_ADDR" \
-    "$CHECKDISHOOT_ADDR" \
-    "$HANDLEFIREWEAPON_HOOK_ADDR" \
-    "$HANDLEFIREWEAPON_ADDR" \
-    "$TOGGLEREADY_HOOK_ADDR" \
-    "$TOGGLEREADY_ADDR" \
+    "$ZNETUPDATE_HOOK_ADDR" \
+    "$BOOTSTRAP_ADDR" \
     "${MENU_ARGS[@]}"
 
 echo

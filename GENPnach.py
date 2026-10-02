@@ -8,6 +8,12 @@ import argparse
 FEATURE_COUNT = 6
 
 
+# PCSX2 Patch Modes
+# mode=0 -> Only on game startup, when the entry point is being executed for the first time.
+# mode=1 -> every frame
+# mode=2 -> Once at game startup and every frame.
+# mode=3 -> applied once at game startup and immediately after applying the patch.
+
 def make_jal(address):
     """
     Encode a MIPS JAL instruction for the supplied target address.
@@ -74,22 +80,15 @@ OUTPUT_FILE = sys.argv[3]
 
 FEATURESET_ADDR = int(sys.argv[4], 0)
 
-CHECKDISHOOT_HOOK_ADDR = int(sys.argv[5], 0)
-CHECKDISHOOT_TARGET = int(sys.argv[6], 0)
-
-HANDLEFIREWEAPON_HOOK_ADDR = int(sys.argv[7], 0)
-HANDLEFIREWEAPON_TARGET = int(sys.argv[8], 0)
-
-TOGGLEREADY_HOOK_ADDR = int(sys.argv[9], 0)
-TOGGLEREADY_TARGET = int(sys.argv[10], 0)
-
+ZNETUPDATE_HOOK_ADDR = int(sys.argv[5], 0)
+ZNETUPDATE_TARGET = int(sys.argv[6], 0)
 
 # Optional additions: original eight positional arguments still work unchanged.
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--mutable-range', nargs=2, type=lambda value: int(value, 0))
 parser.add_argument('--hook', nargs=2, action='append', default=[], type=lambda value: int(value, 0))
 parser.add_argument('--restore', nargs=2, action='append', default=[], type=lambda value: int(value, 0))
-extra = parser.parse_args(sys.argv[11:])
+extra = parser.parse_args(sys.argv[7:])
 
 
 #
@@ -140,16 +139,8 @@ for site, target in extra.hook:
 # Generate JAL instructions.
 #
 try:
-    checkdishoot_jal = make_jal(
-        CHECKDISHOOT_TARGET
-    )
-
-    handlefireweapon_jal = make_jal(
-        HANDLEFIREWEAPON_TARGET
-    )
-
-    toggleready_jal = make_jal(
-        TOGGLEREADY_TARGET
+    znetupdate_jal = make_jal(
+        ZNETUPDATE_TARGET
     )
 
 except ValueError as e:
@@ -172,14 +163,14 @@ with open(OUTPUT_FILE, "w") as out:
     # Restore original game instructions.
     #
 
-    # CCameraApp::Tick -> CZSealBody::CheckDIShoot
-    write_patch( out, CHECKDISHOOT_HOOK_ADDR, 0x0C0A9D24 )
+    # CGame::Tick -> CZNetwork::zNetUpdate
+    write_patch( out, ZNETUPDATE_HOOK_ADDR, 0x0C0CF244 )
 
     # CZKit -> HandleFireWeapon
-    write_patch( out, HANDLEFIREWEAPON_HOOK_ADDR, make_jal(0x002B7730) )
+    # write_patch( out, HANDLEFIREWEAPON_HOOK_ADDR, make_jal(0x002B7730) )
 
     # CZPersonaState -> ToggleReady
-    write_patch( out, TOGGLEREADY_HOOK_ADDR, 0x0C082DF4 )
+    # write_patch( out, TOGGLEREADY_HOOK_ADDR, 0x0C082DF4 )
 
     for site, original_word in extra.restore:
         write_patch(out, site, original_word)
@@ -198,13 +189,9 @@ with open(OUTPUT_FILE, "w") as out:
     #
     # Replace original call with:
     #
-    #     jal hk_CheckDIShoot
+    #     jal Bootstrap
     #
-    write_patch(
-        out,
-        CHECKDISHOOT_HOOK_ADDR,
-        checkdishoot_jal
-    )
+    write_patch(out, ZNETUPDATE_HOOK_ADDR, znetupdate_jal, mode=3)
 
     #
     # CZKit hook
@@ -213,11 +200,7 @@ with open(OUTPUT_FILE, "w") as out:
     #
     #     jal hk_HandleFireWeapon
     #
-    write_patch(
-        out,
-        HANDLEFIREWEAPON_HOOK_ADDR,
-        handlefireweapon_jal
-    )
+    # write_patch(out, HANDLEFIREWEAPON_HOOK_ADDR, handlefireweapon_jal)
 
     #
     # CZPersona hook
@@ -226,11 +209,7 @@ with open(OUTPUT_FILE, "w") as out:
     #
     #     jal hk_ToggleReady
     #
-    write_patch(
-        out,
-        TOGGLEREADY_HOOK_ADDR,
-        toggleready_jal
-    )
+    # write_patch(out, TOGGLEREADY_HOOK_ADDR, toggleready_jal)
 
     for site, target in extra.hook:
         write_patch(out, site, make_jal(target))
@@ -245,11 +224,7 @@ with open(OUTPUT_FILE, "w") as out:
     #
     for offset in range(0, len(data), 4):
 
-        value = struct.unpack_from(
-            "<I",
-            data,
-            offset
-        )[0]
+        value = struct.unpack_from("<I", data, offset)[0]
 
         address = CODE_CAVE + offset
 
@@ -258,14 +233,14 @@ with open(OUTPUT_FILE, "w") as out:
             FEATURESET_ADDR,
             FEATURE_COUNT
         ):
-            mode = 0
+            mode = 3
         else:
             mode = 1
 
         if extra.mutable_range and overlaps_feature_array(
             address, extra.mutable_range[0], extra.mutable_range[1] - extra.mutable_range[0]
         ):
-            mode = 0
+            mode = 3
 
         write_patch(out, address, value, mode)
 
@@ -276,24 +251,10 @@ print()
 print("Hooks:")
 
 print(
-    f"  CheckDIShoot:\n"
-    f"    0x{CHECKDISHOOT_HOOK_ADDR:08X}"
-    f" -> 0x{CHECKDISHOOT_TARGET:08X}"
-    f"  JAL={checkdishoot_jal:08X}"
-)
-
-print(
-    f"  HandleFireWeapon:\n"
-    f"    0x{HANDLEFIREWEAPON_HOOK_ADDR:08X}"
-    f" -> 0x{HANDLEFIREWEAPON_TARGET:08X}"
-    f"  JAL={handlefireweapon_jal:08X}"
-)
-
-print(
-    f"  ToggleReady:\n"
-    f"    0x{TOGGLEREADY_HOOK_ADDR:08X}"
-    f" -> 0x{TOGGLEREADY_TARGET:08X}"
-    f"  JAL={toggleready_jal:08X}"
+    f"  Bootstrap:\n"
+    f"    0x{ZNETUPDATE_HOOK_ADDR:08X}"
+    f" -> 0x{ZNETUPDATE_TARGET:08X}"
+    f"  JAL={znetupdate_jal:08X}"
 )
 
 print()
