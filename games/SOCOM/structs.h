@@ -301,7 +301,7 @@ enum
 	CTRL_MISC
 };
 
-typedef s8 MISSION_STATE;
+typedef s32 MISSION_STATE;
 enum 
 {
 	MISSION_UNLOADED,
@@ -741,6 +741,21 @@ typedef struct
 } CHUD; //Size: 0x12C5C
 static_assert(sizeof(CHUD) == 0x12C5C);
 
+// ------------------------------------------------------------
+// CORE
+// ------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+	char pad_0000[4]; //0x0000
+} CGame; //Size: 0x0004
+static_assert(sizeof(CGame) == 0x4);
+
+typedef struct __attribute__((packed))
+{
+	char pad_0000[4]; //0x0000
+} CZNetwork; //Size: 0x0004
+static_assert(sizeof(CZNetwork) == 0x4);
 
 // ------------------------------------------------------------
 // CNode
