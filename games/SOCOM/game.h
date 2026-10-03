@@ -67,12 +67,21 @@ DefineFunction(WakeupThread, s32, (s32 thread_id), 0x0015A810);
 DefineFunction(SuspendThread, s32, (s32 thread_id), 0x0015A850);
 DefineFunction(ResumeThread, s32, (s32 thread_id), 0x0015A870);
 DefineFunction(mcDelayThread, s32, (u16 delay), 0x00171278);
+DefineFunction(ReferThreadStatus, s32, (s32 thread_id, ee_thread_status_t* status), 0x0015A7E0);
 
 typedef s32 (*AlarmCallback_t)(s32 alarm_id, u16 time, void* common);
 
 // ------------------------------------------------------------
 // Native functions
 // ------------------------------------------------------------
+
+//
+// ============================================================================
+//  GAME
+// ============================================================================
+//
+
+DefineFunction(CGame_Tick, void, (CGame* game), 0x0020ED20);
 
 //
 // ============================================================================

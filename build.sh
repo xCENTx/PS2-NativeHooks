@@ -6,7 +6,7 @@ CC=mips64r5900el-ps2-elf-gcc
 OBJCOPY=mips64r5900el-ps2-elf-objcopy
 NM=mips64r5900el-ps2-elf-nm
 
-OBJECTS="bin/main.o bin/ui.o bin/memory.o bin/hook.o bin/entities.o bin/render.o bin/math.o bin/containers.o"
+OBJECTS="bin/main.o bin/ui.o bin/memory.o bin/hook.o bin/entities.o bin/render.o bin/thread.o bin/math.o bin/containers.o"
 ELF=bin/SOCOM.elf
 BINARY=bin/SOCOM.bin
 LINKER=linker/cave.ld
@@ -47,6 +47,8 @@ $CC $CFLAGS -c core/memory.c \
     -o bin/memory.o
 $CC $CFLAGS -c core/hook.c \
     -o bin/hook.o
+$CC $CFLAGS -c core/thread.c \
+    -o bin/thread.o
 $CC $CFLAGS -c games/SOCOM/entities.c \
     -o bin/entities.o
 $CC $CFLAGS -c games/SOCOM/render.c \
@@ -77,6 +79,36 @@ FEATURESET_ADDR=$(
     awk '$3 == "m_featureset" { print "0x"$1; exit }'
 )
 
+CURRENTTHREADID_ADDR=$(
+    $NM -n "$ELF" |
+    awk '$3 == "g_CurrentThreadId" { print "0x"$1; exit }'
+)
+
+THREADCOUNT_ADDR=$(
+    $NM -n "$ELF" |
+    awk '$3 == "g_ThreadCounter" { print "0x"$1; exit }'
+)
+
+THREADIDS_ADDR=$(
+    $NM -n "$ELF" |
+    awk '$3 == "g_TestThreadId" { print "0x"$1; exit }'
+)
+
+THREADPLAYERS_ADDR=$(
+    $NM -n "$ELF" |
+    awk '$3 == "g_ThreadPlayer" { print "0x"$1; exit }'
+)
+
+THREADSTATUS_ADDR=$(
+    $NM -n "$ELF" |
+    awk '$3 == "g_ThreadStatus" { print "0x"$1; exit }'
+)
+
+THREADSTATUSRESULT_ADDR=$(
+    $NM -n "$ELF" |
+    awk '$3 == "g_ThreadStatusResult" { print "0x"$1; exit }'
+)
+
 if [ -z "$BOOTSTRAP_ADDR" ]; then
     echo "Error: Could not find Bootstrap in $ELF"
     exit 1
@@ -87,10 +119,41 @@ if [ -z "$FEATURESET_ADDR" ]; then
     exit 1
 fi
 
+if [ -z "$THREADCOUNT_ADDR" ]; then
+    echo "Error: Could not find g_ThreadCounter in $ELF"
+    exit 1
+fi
+
+if [ -z "$CURRENTTHREADID_ADDR" ]; then
+    echo "Error: Could not find g_CurrentThreadId in $ELF"
+    exit 1
+fi
+
+if [ -z "$THREADIDS_ADDR" ]; then
+    echo "Error: Could not find g_TestThreadId in $ELF"
+    exit 1
+fi
+
+if [ -z "$THREADSTATUS_ADDR" ]; then
+    echo "Error: Could not find g_ThreadStatus in $ELF"
+    exit 1
+fi
+
+if [ -z "$THREADSTATUSRESULT_ADDR" ]; then
+    echo "Error: Could not find g_ThreadStatusResult in $ELF"
+    exit 1
+fi
+
 echo
 echo "Resolved hook addresses:"
 echo "  Bootstrap           = $BOOTSTRAP_ADDR"
 echo "  m_featureset        = $FEATURESET_ADDR"
+echo "  g_ThreadCounter     = $THREADCOUNT_ADDR"
+echo "  g_TestThreadId      = $THREADIDS_ADDR"
+echo "  g_CurrentThreadId   = $CURRENTTHREADID_ADDR"
+echo "  g_ThreadPlayer      = $THREADPLAYERS_ADDR"
+echo "  g_ThreadStatus      = $THREADSTATUS_ADDR"
+echo "  g_ThreadStatusResult = $THREADSTATUSRESULT_ADDR"
 echo
 
 
@@ -126,7 +189,6 @@ $OBJCOPY \
     -j .hooks \
     -j .cheats \
     -j .data \
-    -j .bss \
     -j .menu_state \
     "$ELF" \
     "$BINARY"

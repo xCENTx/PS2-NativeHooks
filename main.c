@@ -4,16 +4,11 @@
 #include "render.h"
 #include "containers.h"
 #include "entities.h"
+#include "thread.h"
 
 // ------------------------------------------------------------
 // statics
 // ------------------------------------------------------------
-
-#define NATIVE_THREAD_STACK_SIZE 0x4000
-
-__attribute__((section(".thread_stack"), aligned(16)))
-static u8 g_NativeThreadStack[NATIVE_THREAD_STACK_SIZE];
-static volatile s32 g_NativeThreadId = -1;
 
 #define AIM_FOV 100.0f
 #define AIM_FOV_SQ (AIM_FOV * AIM_FOV)
@@ -142,19 +137,19 @@ bool Patch_NeverEnd_disable(void)
 void Patches_Tick(void)
 {
     // Auto Complete Missions Patch
-    CZSealBody* seal = ftsGetPlayer();
+    //CZSealBody* seal = ftsGetPlayer();
+    //
+    //if (!seal)
+    //{ 
+    //    // disable so we dont get stuck in endless mission complete
+    //     m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled = false;
+    //}
 
-    if (!seal)
-    { 
-        // disable so we dont get stuck in endless mission complete
-         m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled = false;
-    }
-
-    CheatStateUpdate(
-        &m_featureset[CHEAT_MATCH_AUTO_COMPLETE],
-        Patch_ForceCompleteMission_enable,
-        Patch_ForceCompleteMission_disable
-    );
+    //CheatStateUpdate(
+    //    &m_featureset[CHEAT_MATCH_AUTO_COMPLETE],
+    //    Patch_ForceCompleteMission_enable,
+    //    Patch_ForceCompleteMission_disable
+    //);
     
     // Force Start Match Patch
     //  CheatStateUpdate(
@@ -164,11 +159,11 @@ void Patches_Tick(void)
     //  );
 
     // Never Ending Match Patch
-    CheatStateUpdate(
-        &m_featureset[CHEAT_MATCH_NEVER_ENDS],
-        Patch_NeverEnd_enable,
-        Patch_NeverEnd_disable
-    );
+    //  CheatStateUpdate(
+    //      &m_featureset[CHEAT_MATCH_NEVER_ENDS],
+    //      Patch_NeverEnd_enable,
+    //      Patch_NeverEnd_disable
+    //  );
 }
 
 
@@ -444,6 +439,16 @@ static void ProcessPlayers(void* obj, void* ctx)
     if (entity == 0 || esp == 0 || esp->seal == 0)
         return;
 
+    //  
+    if ((m_featureset[CHEAT_MATCH_RESPAWN_MODE].enabled || m_featureset[CHEAT_AI_RESPAWNS].enabled  ) 
+        && isCharacter 
+        && !isAlive
+    )
+    {
+        // need to ensure is host for a FORCE ALL RESPAWN
+        RespawnSeal(entity);
+    }
+
     if (entity == esp->seal)
         return;
 
@@ -456,16 +461,6 @@ static void ProcessPlayers(void* obj, void* ctx)
     isCharacter = IsCharacter(&entity->m_ent);
     isSealTeam = IsSealTeamUnit(entity);
     isRendered = CNode_Rendered(pNode);
-
-    //  
-    if ((m_featureset[CHEAT_MATCH_RESPAWN_MODE].enabled  || m_featureset[CHEAT_AI_RESPAWNS].enabled  ) 
-        && isCharacter 
-        && !isAlive
-    )
-    {
-        // need to ensure is host for a FORCE ALL RESPAWN
-        RespawnSeal(entity);
-    }
 
     //
     if (m_featureset[CHEAT_AI_FRIENDLY].enabled  
@@ -647,6 +642,7 @@ static void PickupESP_Tick(CPickup* pickup, ctxPickupESP* ctx)
 // HOOKS
 // ------------------------------------------------------------
 
+DefineHookFor(CGame_Tick);
 DefineHookFor(CZSealBody_Tick);
 DefineHookFor(CZSealBody_CheckDIShoot);
 DefineHookFor(CZKit_HandleFireWeapon);
@@ -717,6 +713,9 @@ void hk_OnMissionComplete(CMission* pMission, MISSION_STATE dwState)
         return;
     }
 
+    if (m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled)
+        dwState = MISSION_SUCCESS;
+
     CMission_OnMissionComplete_Original(pMission, dwState);
 }
 
@@ -745,7 +744,7 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
         ZArray_ForEach((ZArray*)gPickupArray, ProcessPickupESP, &ctxPickups);
     }
 
-    //  PlayerSeal_Tick(seal);
+    PlayerSeal_Tick(seal);
 
     if (m_featureset[CHEAT_MATCH_SPAWN_BOT].enabled)
     {
@@ -816,6 +815,11 @@ void hk_CZSealBody_Tick(CZSealBody* seal, float deltaTime)
     CZSealBody_Tick_Original(seal, deltaTime);
 }
 
+void hk_CGame_Tick(CGame* game)
+{
+    CGame_Tick_Original(game);
+}
+
 __attribute__((noinline))
 void hk_CAppCamera_Tick(CAppCamera* camera)
 {
@@ -844,11 +848,14 @@ static bool NativeHooks_Init(void)
     if (!CreateDetourChecked(CZSealBody_CheckDIShoot, hk_CheckDIShoot))
         return false;
 
-    if (!CreateDetourChecked(CZSealBody_Tick, hk_CZSealBody_Tick))
-        return false;
+    //  if (!CreateDetourChecked(CGame_Tick, hk_CGame_Tick))
+    //      return false;
 
-    if (!CreateDetourChecked(CAppCamera_Tick, hk_CAppCamera_Tick))
-        return false;
+    //  if (!CreateDetourChecked(CZSealBody_Tick, hk_CZSealBody_Tick))
+    //      return false;
+
+    //  if (!CreateDetourChecked(CAppCamera_Tick, hk_CAppCamera_Tick))
+    //      return false;
 
     MenuEnsureInitialized();
 
@@ -865,12 +872,13 @@ static void NativeHooks_Shutdown(void)
     RemoveDetour(CZPersonaState_ToggleReady);
     RemoveDetour(CMission_OnMissionComplete);
     RemoveDetour(CZSealBody_CheckDIShoot);
-    RemoveDetour(CZSealBody_Tick);
-    RemoveDetour(CAppCamera_Tick);
+    //  RemoveDetour(CZSealBody_Tick);
+    //  RemoveDetour(CAppCamera_Tick);
 
     Memory_FlushCache();
 }
 
+// @NOTE: cannot call game functions
 static void NativeHooks_Thread(void* arg)
 {
     (void)arg;
@@ -879,51 +887,17 @@ static void NativeHooks_Thread(void* arg)
 
     //  while (g_bNativeHooksRunning)
     //  {
-    //  
-    //      PlayerSeal_Tick();
+    //      PlayerSeal_Tick(ftsGetPlayer());
     //      
     //      Patches_Tick(); // process patches
     //   
-    //      // mcDelayThread(1);    // H-SYNC
+    //      mcDelayThread(1);    // H-SYNC
     //  }
-    
+    //  
     //  NativeHooks_Shutdown();
-
-    g_NativeThreadId = -1;
 
     ExitDeleteThread();
 }
-
-static s32 NativeHooks_CreateThread(void)
-{
-    ee_thread_t thread = { 0 };
-
-    __asm__ volatile("move %0, $gp" : "=r"(g_NativeHooksGP)); // capture gp register
-
-    thread.func             = NativeHooks_Thread;
-    thread.stack            = g_NativeThreadStack;
-    thread.stack_size       = sizeof(g_NativeThreadStack);
-    thread.gp_reg           = (void*)g_NativeHooksGP;
-    thread.initial_priority = 0x40;
-
-    s32 threadId = CreateThread(&thread);
-
-    if (threadId < 0)
-        return threadId;
-
-    s32 result = StartThread(threadId, NULL);
-
-    if (result < 0)
-    {
-        DeleteThread(threadId);
-        return result;
-    }
-
-    g_NativeThreadId = threadId;
-
-    return threadId;
-}
-
 
 #define BOOTSTRAP_CALL_ADDRESS  0x0020ED50
 
@@ -936,17 +910,54 @@ s64 Bootstrap(CZNetwork* network)
 
         Memory_SetFlushCacheFunction(FlushCache);
 
-        NativeHooks_CreateThread();
-
-        // Restore CGame::Tick -> CZNetwork::zNetUpdate.
-        // Memory_MakeCall(BOOTSTRAP_CALL_ADDRESS, (u32)CZNetwork_zNetUpdate);
-    }
-
-    if (g_bNativeHooksRunning)
-    {
+        // TEST_BuildThreadEnvironment();
         
-        Patches_Tick(); // process patches
+        NativeHooks_Init();
+        
+        // Restore CGame::Tick -> CZNetwork::zNetUpdate.
+        Memory_MakeCall(BOOTSTRAP_CALL_ADDRESS, (u32)CZNetwork_zNetUpdate);
     }
+
+    /// @todo: local thread does some weird shit
+    //  if (g_bNativeHooksRunning)
+    //  {
+    //      
+    //      Patches_Tick(); // process patches
+    //  }
 
     return CZNetwork_zNetUpdate(network);
+}
+
+
+static CZSealBody* volatile g_ThreadPlayer = 0;
+static void TEST_CounterThread(void* arg)
+{
+    (void)arg;
+
+
+    g_CurrentThreadId = Thread_GetThreadId();
+
+    while (g_ThreadCounter < 100000)
+    {
+        
+        g_ThreadPlayer = ftsGetPlayer();
+        g_ThreadCounter++;
+     
+        mcDelayThread(1);    // H-SYNC
+    }
+
+    Thread_ExitDelete();
+}
+
+static void TEST_BuildThreadEnvironment(void)
+{
+    Thread_SetCreateThread(CreateThread);
+    Thread_SetStartThread(StartThread);
+    Thread_SetDeleteThread(DeleteThread);
+    Thread_SetExitDeleteThread(ExitDeleteThread);
+    Thread_SetGetThreadId(GetThreadId);
+
+    g_TestThreadId = Thread_CreateThreadGP(TEST_CounterThread, THREAD_PRIORITY_40);
+    for (s32 id = 1; id <= 8; id++)
+        g_ThreadStatusResult[id - 1] = ReferThreadStatus(id, (ee_thread_status_t*)&g_ThreadStatus[id - 1]);
 }

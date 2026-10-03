@@ -50,7 +50,7 @@ SECTIONS
         *(COMMON)
     }
 
-    .thread_stack :
+    .thread_stack (NOLOAD) :
     {
         . = ALIGN(16);
         *(.thread_stack)
