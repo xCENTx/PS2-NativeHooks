@@ -44,6 +44,27 @@ typedef struct
 } ee_thread_t;
 _Static_assert(sizeof(ee_thread_t) == 0x24, "ee_thread_t size mismatch");
 
+//typedef struct
+//{
+//    int status;             // 0x00
+//    void* func;             // 0x04
+//    void* stack;            // 0x08
+//    int stack_size;         // 0x0C
+//    void* gp_reg;           // 0x10
+//    int initial_priority;   // 0x14
+//    int current_priority;   // 0x18
+//    u32 attr;               // 0x1C
+//    u32 option;             // 0x20
+//    // additional status fields depending on the exact EE kernel ABI
+//} ee_thread_status_t;
+//_Static_assert(sizeof(ee_thread_status_t) == 0x28, "ee_thread_status_t size mismatch");
+
+typedef struct
+{
+    u8 data[0x30];
+} ee_thread_status_t;
+_Static_assert(sizeof(ee_thread_status_t) == 0x30, "ee_thread_status_t size mismatch");
+
 // ------------------------------------------------------------
 // Function Definitions
 // ------------------------------------------------------------
