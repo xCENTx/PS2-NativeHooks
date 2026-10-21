@@ -170,22 +170,21 @@ bool GetMuzzleWorldLocation(CZSealBody* seal, Vec3* wsOrigin)
 
 bool RespawnSeal(CZSealBody* seal)
 {
-    if (!seal 
-        || IsAlive(seal) == true 
-        || IsCharacter(&seal->m_ent) == false
-    )
-    {
+    if (!seal  || IsAlive(seal) || !IsCharacter(&seal->m_ent))
         return false;
-    }
 
-    // Request native respawn.
+    // Request respawn.
     seal->m_should_respawn = true;
-
-    // Force CHUD through its menu-state cleanup transition.
-    if (seal->m_ent.p_SealCtrl)
+    
+    CAppCamera* camera = seal->p_AppCamera;
+    if (camera)
     {
-        seal->m_ent.p_SealCtrl->m_menu_state = MENU_STATE_ORDERS;
-        seal->m_ent.p_SealCtrl->m_menu_state = MENU_STATE_NONE;
+        // Restore camera ownership/state.
+        if (camera->pAttachedPlayer != seal)
+            camera->pAttachedPlayer = seal;
+
+        if (camera->mCamDeathState != 0)
+            camera->mCamDeathState = 0;
     }
 
     return true;
@@ -194,17 +193,11 @@ bool RespawnSeal(CZSealBody* seal)
 bool RespawnLocalPlayer()
 {
     CZSealBody* seal = ftsGetPlayer();
-    CAppCamera* camera = (CAppCamera*)gAppCamera;
-    if (!seal || !camera || IsAlive(seal))
+    if (!seal || IsAlive(seal))
         return false;
 
     if (RespawnSeal(seal) == false)
         return false;
-
-
-    // Restore camera ownership/state.
-    camera->pAttachedPlayer = seal;
-    camera->mCamDeathState = 0;
 
     return true;
 }

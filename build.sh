@@ -6,7 +6,7 @@ CC=mips64r5900el-ps2-elf-gcc
 OBJCOPY=mips64r5900el-ps2-elf-objcopy
 NM=mips64r5900el-ps2-elf-nm
 
-OBJECTS="bin/main.o bin/ui.o bin/memory.o bin/hook.o bin/entities.o bin/render.o bin/thread.o bin/math.o bin/containers.o"
+OBJECTS="bin/main.o bin/ui.o bin/memory.o bin/hook.o bin/entities.o bin/bots.o bin/render.o bin/thread.o bin/math.o bin/containers.o"
 ELF=bin/SOCOM.elf
 BINARY=bin/SOCOM.bin
 LINKER=linker/cave.ld
@@ -51,6 +51,8 @@ $CC $CFLAGS -c core/thread.c \
     -o bin/thread.o
 $CC $CFLAGS -c games/SOCOM/entities.c \
     -o bin/entities.o
+$CC $CFLAGS -c games/SOCOM/bots.c \
+    -o bin/bots.o
 $CC $CFLAGS -c games/SOCOM/render.c \
     -o bin/render.o
 $CC $CFLAGS -c games/SOCOM/math.c \

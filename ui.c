@@ -320,6 +320,11 @@ _Static_assert(offsetof(NativeTextPacket, centered) == 0x75, "centering offset")
 _Static_assert(offsetof(NativeTextPacket, first) == 0x78, "start offset");
 _Static_assert(offsetof(NativeTextPacket, x16) == 0x84, "position offset");
 
+static bool ReadBool(u32 p)
+{
+    return *(volatile bool*)(u64)p;
+}
+
 static u32 ReadU32(u32 p)
 {
     return *(volatile u32*)(u64)p;
@@ -869,7 +874,7 @@ __attribute__((section(".hook_pause"), noinline, used)) int MenuPauseHook97205(v
 {
     typedef int (*NativePause)(void*);
     MenuEnsureInitialized();
-    if (g_menu.open)
+    if (g_menu.open && !ReadBool(gNetwork))
     {
         return 1;
     }

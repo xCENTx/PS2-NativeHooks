@@ -295,8 +295,8 @@ typedef s8 SEAL_CONTROL_TYPE;
 enum
 {
 	CTRL_NONE,
-	CTRL_PLAYER,
 	CTRL_AI,
+	CTRL_PLAYER,
 	CTRL_SQUIRM,
 	CTRL_MISC
 };
@@ -1134,7 +1134,9 @@ struct CZSealBody
 	SSealStats m_SealStats; //0x04D0
 	char pad_0522[14]; //0x0522
 	CZKit m_Kit; //0x0530
-	char pad_0DC0[40]; //0x0DC0
+	char pad_0DC0[8]; //0x0DC0
+	CAppCamera* p_AppCamera; //0x0DC8
+	char pad_0DD0[28]; //0x0DCC
 	CZSealBody* p_CarriedBody; //0x0DE8
 	char pad_0DEC[220]; //0x0DEC
 	f32 m_elevation; //0x0EC8

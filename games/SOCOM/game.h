@@ -131,6 +131,8 @@ DefineFunction(CZSealBody_CheckDIShoot, void, (CZSealBody* seal, s64 a2, s32 a3)
 DefineFunction(CZSealBody_GetFirepointPos, bool, (CZSealBody* seal, f32* outPosition, s64 a3), 0x002D1720);
 DefineFunction(CZSealBody_TeleportTo, s64, (CZSealBody* seal, const Matrix4x4* matrix), 0x002537D0);
 DefineFunction(CZSealBody_Tick, void, (CZSealBody* seal, float deltaTime), 0x0025B160);
+DefineFunction(CCharacterType_GetByNameMod, CCharacterType*, (const char* name), 0x0024E030);
+
 
 //
 // ============================================================================

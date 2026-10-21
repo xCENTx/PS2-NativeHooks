@@ -4,6 +4,7 @@
 #include "render.h"
 #include "containers.h"
 #include "entities.h"
+#include "bots.h"
 #include "thread.h"
 
 // ------------------------------------------------------------
@@ -439,16 +440,6 @@ static void ProcessPlayers(void* obj, void* ctx)
     if (entity == 0 || esp == 0 || esp->seal == 0)
         return;
 
-    //  
-    if ((m_featureset[CHEAT_MATCH_RESPAWN_MODE].enabled || m_featureset[CHEAT_AI_RESPAWNS].enabled  ) 
-        && isCharacter 
-        && !isAlive
-    )
-    {
-        // need to ensure is host for a FORCE ALL RESPAWN
-        RespawnSeal(entity);
-    }
-
     if (entity == esp->seal)
         return;
 
@@ -461,6 +452,17 @@ static void ProcessPlayers(void* obj, void* ctx)
     isCharacter = IsCharacter(&entity->m_ent);
     isSealTeam = IsSealTeamUnit(entity);
     isRendered = CNode_Rendered(pNode);
+    
+
+    //  
+    if (( m_featureset[CHEAT_MATCH_RESPAWN_MODE].enabled || m_featureset[CHEAT_AI_RESPAWNS].enabled  ) 
+        && isCharacter 
+        && !isAlive
+    )
+    {
+        // need to ensure is host for a FORCE ALL RESPAWN
+        RespawnSeal(entity);
+    }
 
     //
     if (m_featureset[CHEAT_AI_FRIENDLY].enabled  
@@ -542,6 +544,37 @@ static void ProcessPickupESP(void* obj, void* ctx)
 
     esp->bestTargetDistSq = aimDistSq;
     esp->target = pickup;
+}
+
+static void Bots_ProcessUI(void)
+{
+    if (m_featureset[CHEAT_MATCH_SPAWN_BOT].enabled)
+    {
+        m_featureset[CHEAT_MATCH_SPAWN_BOT].enabled = false;
+
+        CZSealBody* local = ftsGetPlayer();
+
+        if (local)
+        {
+            Matrix4x4 transform = local->m_ent.m_Matrix;
+
+            // Spawn a short distance from the local player.
+            transform.m[3][0] += 3.0f;
+
+            CZSealBody* bot = Bots_Spawn(
+                "NightFyreBOT",
+                &transform,
+                local->m_ent.m_TeamMask
+            );
+
+            Notification(
+                bot ? "Bot created" : "Bot creation failed",
+                0.0f
+            );
+        }
+    }
+
+    Bots_SetRespawnsEnabled(m_featureset[CHEAT_AI_RESPAWNS].enabled);
 }
 
 static void PlayerSeal_Tick(CZSealBody* seal)
@@ -704,17 +737,17 @@ void hk_OnMissionComplete(CMission* pMission, MISSION_STATE dwState)
 
     if (bSafe || m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled) 
     {
-        CMission_OnMissionComplete_Original(pMission, dwState);
+        CMission_OnMissionComplete_Original(
+            pMission, 
+            m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled 
+            ? MISSION_SUCCESS 
+            : dwState
+        );
         return;
     }
     
     if ( m_featureset[CHEAT_MATCH_NEVER_ENDS].enabled)
-    {
         return;
-    }
-
-    if (m_featureset[CHEAT_MATCH_AUTO_COMPLETE].enabled)
-        dwState = MISSION_SUCCESS;
 
     CMission_OnMissionComplete_Original(pMission, dwState);
 }
@@ -746,14 +779,8 @@ void hk_CheckDIShoot(CZSealBody* seal, s64 a2, int a3)
 
     PlayerSeal_Tick(seal);
 
-    if (m_featureset[CHEAT_MATCH_SPAWN_BOT].enabled)
-    {
-        m_featureset[CHEAT_MATCH_SPAWN_BOT].enabled = false;
-
-        u32 id;
-        if (SpawnFriendlyAIBot("NightFyre", &id))
-            Notification("Spawned BOT", 0.0f);
-    }
+    Bots_ProcessUI();
+    Bots_Tick();
 
     // aimbot
     if (m_featureset[CHEAT_AIMBOT].enabled  )
@@ -813,6 +840,25 @@ __attribute__((noinline))
 void hk_CZSealBody_Tick(CZSealBody* seal, float deltaTime)
 {
     CZSealBody_Tick_Original(seal, deltaTime);
+
+    bool isAlive = IsAlive(seal);
+
+    // handle camera reset after respawn , should only be performed once per respawn cycle
+    {
+        CAppCamera* camera = seal->p_AppCamera;
+        if (!camera)
+            return;
+        
+        // reset camera death state if the player is alive
+        if (isAlive && camera->mCamDeathState != 0)
+        {    camera->mCamDeathState = 0;
+        
+            // reset menu state after respawn
+            CZSealCtrl* seal_ctrl = seal->m_ent.p_SealCtrl;
+            if (seal_ctrl)
+                seal_ctrl->m_menu_state = MENU_STATE_NONE;
+        }
+    }
 }
 
 void hk_CGame_Tick(CGame* game)
@@ -851,11 +897,13 @@ static bool NativeHooks_Init(void)
     //  if (!CreateDetourChecked(CGame_Tick, hk_CGame_Tick))
     //      return false;
 
-    //  if (!CreateDetourChecked(CZSealBody_Tick, hk_CZSealBody_Tick))
-    //      return false;
+    if (!CreateDetourChecked(CZSealBody_Tick, hk_CZSealBody_Tick))
+        return false;
 
     //  if (!CreateDetourChecked(CAppCamera_Tick, hk_CAppCamera_Tick))
     //      return false;
+
+    Bots_Init();
 
     MenuEnsureInitialized();
 
@@ -872,7 +920,7 @@ static void NativeHooks_Shutdown(void)
     RemoveDetour(CZPersonaState_ToggleReady);
     RemoveDetour(CMission_OnMissionComplete);
     RemoveDetour(CZSealBody_CheckDIShoot);
-    //  RemoveDetour(CZSealBody_Tick);
+    RemoveDetour(CZSealBody_Tick);
     //  RemoveDetour(CAppCamera_Tick);
 
     Memory_FlushCache();
