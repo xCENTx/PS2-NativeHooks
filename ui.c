@@ -874,7 +874,7 @@ __attribute__((section(".hook_pause"), noinline, used)) int MenuPauseHook97205(v
 {
     typedef int (*NativePause)(void*);
     MenuEnsureInitialized();
-    if (g_menu.open && !ReadBool(gNetwork))
+    if (g_menu.open && !*(volatile u8*)gTheNetwork2)
     {
         return 1;
     }

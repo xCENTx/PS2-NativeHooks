@@ -90,7 +90,7 @@ void Bots_Reset(void)
     g_Bots.respawnsEnabled = false;
 }
 
-CZSealBody* Bots_Spawn( const char* name, const Matrix4x4* transform, s32 teamMask )
+CZSealBody* Bots_Spawn(const char* name, const Matrix4x4* transform, s32 teamMask)
 {
     if (!name || !*name || !transform)
         return NULL;
@@ -104,9 +104,7 @@ CZSealBody* Bots_Spawn( const char* name, const Matrix4x4* transform, s32 teamMa
         return NULL;
 
     CCharacterType* character =
-        (CCharacterType*)CCharacterType_GetByNameMod(
-            "UiCharType2"
-        );
+        (CCharacterType*)CCharacterType_GetByNameMod("UiCharType2");
 
     if (!character)
         return NULL;
@@ -127,6 +125,20 @@ CZSealBody* Bots_Spawn( const char* name, const Matrix4x4* transform, s32 teamMa
     CEntity_SetTeamMask(&bot->m_ent, teamMask);
 
     CZSealBody_TeleportTo(bot, transform);
+
+    if (*(volatile u8*)gTheNetwork2)
+    {
+        // Register this AI as an additional network seal.
+        s32 networkId = CZSealState_CreateLocalSeal(bot, 0);
+
+        if (networkId >= 0)
+        {
+            bot->m_ent.m_id = (u32)networkId;
+
+            // Initialize its replicated state.
+            CZSealState_UpdateLocalSeal(bot);
+        }
+    }
 
     bot->m_should_respawn = 1;
 

@@ -17,6 +17,7 @@
 #define gPickupArray                0x0051E970
 #define gAppCamera                  0x0048D488
 #define gNetwork                    0x0052A5A0
+#define gTheNetwork2                0x0052A5A9
 #define tickAnimFireWeapon          0x001B7C90
 #define g_GS_Z_OFFSET               0x0048CF50
 #define g_theMission                0x004D4880
@@ -132,6 +133,16 @@ DefineFunction(CZSealBody_GetFirepointPos, bool, (CZSealBody* seal, f32* outPosi
 DefineFunction(CZSealBody_TeleportTo, s64, (CZSealBody* seal, const Matrix4x4* matrix), 0x002537D0);
 DefineFunction(CZSealBody_Tick, void, (CZSealBody* seal, float deltaTime), 0x0025B160);
 DefineFunction(CCharacterType_GetByNameMod, CCharacterType*, (const char* name), 0x0024E030);
+
+
+//
+// ============================================================================
+//  SEAL STATE
+// ============================================================================
+//
+
+DefineFunction(CZSealState_CreateLocalSeal, s32, (CZSealBody* seal, s32 isPlayer), 0x00207240);
+DefineFunction(CZSealState_UpdateLocalSeal, void, (CZSealBody* seal), 0x00206DE0);
 
 
 //
