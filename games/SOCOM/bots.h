@@ -28,8 +28,9 @@ void Bots_Tick(void);
 
 CZSealBody* Bots_Spawn(
     const char* name,
+    s32 teamMask,
     const Matrix4x4* transform,
-    s32 teamMask
+    const Vec3* position
 );
 
 bool Bots_SetTeam(u32 entityId, s32 teamMask);

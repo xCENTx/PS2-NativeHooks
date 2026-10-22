@@ -90,22 +90,20 @@ void Bots_Reset(void)
     g_Bots.respawnsEnabled = false;
 }
 
-CZSealBody* Bots_Spawn(const char* name, const Matrix4x4* transform, s32 teamMask)
+CZSealBody* Bots_Spawn( const char* name, s32 teamMask, const Matrix4x4* transform, const Vec3* position )
 {
-    if (!name || !*name || !transform)
+    if (!name || !*name)
         return NULL;
 
-    if (!ftsGetPlayer())
+    CZSealBody* local_seal = ftsGetPlayer();
+    if (!local_seal)
         return NULL;
 
     BotEntry* entry = Bots_FindFreeSlot();
-
     if (!entry)
         return NULL;
 
-    CCharacterType* character =
-        (CCharacterType*)CCharacterType_GetByNameMod("UiCharType2");
-
+    CCharacterType* character = CCharacterType_GetByNameMod("UiCharType2");
     if (!character)
         return NULL;
 
@@ -124,7 +122,32 @@ CZSealBody* Bots_Spawn(const char* name, const Matrix4x4* transform, s32 teamMas
     CEntity_SetDisplayName(&bot->m_ent, name);
     CEntity_SetTeamMask(&bot->m_ent, teamMask);
 
-    CZSealBody_TeleportTo(bot, transform);
+    // Apply optional spawn overrides.
+    if (transform)
+    {
+        CZSealBody_TeleportTo(bot, transform);
+    }
+    else if (position)
+    {
+        Matrix4x4 currentTransform = bot->m_ent.m_Matrix;
+        currentTransform.m[3][0] = position->x;
+        currentTransform.m[3][1] = position->y;
+        currentTransform.m[3][2] = position->z;
+        CZSealBody_TeleportTo(bot, &currentTransform);
+    }
+    else
+    {
+
+        Matrix4x4 currentTransform = bot->m_ent.m_Matrix;
+        
+        Vec3 lookDir = GetLookDirection(bot);
+
+        currentTransform.m[3][0] = local_seal->m_ent.m_Matrix.m[3][0] + (lookDir.x * 5.f);
+        currentTransform.m[3][1] = local_seal->m_ent.m_Matrix.m[3][1] + (lookDir.y * 5.f);
+        currentTransform.m[3][2] = local_seal->m_ent.m_Matrix.m[3][2] + (lookDir.z * 5.f);
+
+        CZSealBody_TeleportTo(bot, &currentTransform);
+    }
 
     if (*(volatile u8*)gTheNetwork2)
     {

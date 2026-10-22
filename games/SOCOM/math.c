@@ -151,3 +151,30 @@ Matrix4x4 MatrixMultiply(Matrix4x4 a, Matrix4x4 b)
     }
     return out;
 }
+
+Vec3 Matrix4x4_GetRight(const Matrix4x4* matrix)
+{
+    return (Vec3){
+        matrix->m[0][0],
+        matrix->m[0][1],
+        matrix->m[0][2]
+    };
+}
+
+Vec3 Matrix4x4_GetUp(const Matrix4x4* matrix)
+{
+    return (Vec3){
+        matrix->m[1][0],
+        matrix->m[1][1],
+        matrix->m[1][2]
+    };
+}
+
+Vec3 Matrix4x4_GetLook(const Matrix4x4* matrix)
+{
+    return (Vec3){
+        -matrix->m[2][0],
+        -matrix->m[2][1],
+        -matrix->m[2][2]
+    };
+}

@@ -456,6 +456,44 @@ void wsDrawLine(Vec3 start, Vec3 end, Vec4 color)
     wsDrawLineGradient(start, end, color, color);
 }
 
+void wsDrawMatrixAxes(const Matrix4x4* matrix, f32 length)
+{
+    if (!matrix || length <= 0.0f)
+        return;
+
+    Vec3 origin = {
+        matrix->m[3][0],
+        matrix->m[3][1],
+        matrix->m[3][2]
+    };
+
+    Vec3 right = Matrix4x4_GetRight(matrix);
+    Vec3 up    = Matrix4x4_GetUp(matrix);
+    Vec3 look  = Matrix4x4_GetLook(matrix);
+
+    Vec3 rightEnd = {
+        origin.x + right.x * length,
+        origin.y + right.y * length,
+        origin.z + right.z * length
+    };
+
+    Vec3 upEnd = {
+        origin.x + up.x * length,
+        origin.y + up.y * length,
+        origin.z + up.z * length
+    };
+
+    Vec3 lookEnd = {
+        origin.x + look.x * length,
+        origin.y + look.y * length,
+        origin.z + look.z * length
+    };
+
+    wsDrawLine(origin, rightEnd, (Vec4){ 1.0f, 0.0f, 0.0f, 1.0f });
+    wsDrawLine(origin, upEnd,    (Vec4){ 0.0f, 1.0f, 0.0f, 1.0f });
+    wsDrawLine(origin, lookEnd,  (Vec4){ 0.0f, 0.0f, 1.0f, 1.0f });
+}
+
 
 //
 // ============================================================================

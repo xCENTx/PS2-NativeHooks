@@ -483,6 +483,8 @@ static void ProcessPlayers(void* obj, void* ctx)
     
     if (m_featureset[CHEAT_ESP].enabled  )
     {
+        wsDrawMatrixAxes(&entity->m_ent.m_Matrix, 1.0f);
+
         //  wsDrawBoundingBox(pNode);
         spDrawSkeleton(entity);
     }
@@ -556,15 +558,11 @@ static void Bots_ProcessUI(void)
 
         if (local)
         {
-            Matrix4x4 transform = local->m_ent.m_Matrix;
-
-            // Spawn a short distance from the local player.
-            transform.m[3][0] += 3.0f;
-
             CZSealBody* bot = Bots_Spawn(
                 "NightFyreBOT",
-                &transform,
-                local->m_ent.m_TeamMask
+                local->m_ent.m_TeamMask,
+                0,
+                0
             );
 
             Notification(

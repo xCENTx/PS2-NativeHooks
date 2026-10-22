@@ -13,4 +13,8 @@ f32 FastLength2D(f32 x, f32 y);
 
 Matrix4x4 MatrixMultiply(Matrix4x4 a, Matrix4x4 b);
 
+Vec3 Matrix4x4_GetRight(const Matrix4x4* matrix);
+Vec3 Matrix4x4_GetUp(const Matrix4x4* matrix);
+Vec3 Matrix4x4_GetLook(const Matrix4x4* matrix);
+
 #endif

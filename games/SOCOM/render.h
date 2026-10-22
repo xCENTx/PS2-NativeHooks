@@ -11,6 +11,9 @@ void wsDrawLine(Vec3 start, Vec3 end, Vec4 color);
 // custom draw circle method
 void Draw2DCircle(f32 x, f32 y, f32 radius, f32 thickness, Vec4 color);
 
+// draws the axes of the input matrix in world space
+void wsDrawMatrixAxes(const Matrix4x4* matrix, f32 length);
+
 // draws a bounding box around the input object in world space
 void wsDrawBoundingBox(CNode* node, Vec3 color);
 

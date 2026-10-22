@@ -17,6 +17,9 @@ Vec3 GetBoneModelPosition(CZBodyPart* bone);
 Vec3 GetBoneWorldPosition(CZSealBody* seal, CZBodyPart* bone);
 bool GetBoneWorldPosByIndex(CZSealBody* seal, FT_BONE bone, Vec3* position);
 bool GetMuzzleWorldLocation(CZSealBody* seal, Vec3* position);
+Vec3 GetLookDirection(CZSealBody* seal);
+Vec3 GetRightDirection(CZSealBody* seal);
+Vec3 GetUpDirection(CZSealBody* seal);
 
 bool RespawnSeal(CZSealBody* seal);
 bool RespawnLocalPlayer(void);

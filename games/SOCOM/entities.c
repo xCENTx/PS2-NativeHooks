@@ -168,6 +168,21 @@ bool GetMuzzleWorldLocation(CZSealBody* seal, Vec3* wsOrigin)
     );
 }
 
+Vec3 GetLookDirection(CZSealBody* seal)
+{
+    return Matrix4x4_GetLook(&seal->m_ent.m_Matrix);
+}
+
+Vec3 GetRightDirection(CZSealBody* seal)
+{
+    return Matrix4x4_GetRight(&seal->m_ent.m_Matrix);
+}
+
+Vec3 GetUpDirection(CZSealBody* seal)
+{
+    return Matrix4x4_GetUp(&seal->m_ent.m_Matrix);
+}
+
 bool RespawnSeal(CZSealBody* seal)
 {
     if (!seal  || IsAlive(seal) || !IsCharacter(&seal->m_ent))
