@@ -134,6 +134,8 @@ CZSealBody* Bots_Spawn( const char* name, s32 teamMask, const Matrix4x4* transfo
 
     CEntity_SetDisplayName(&bot->m_ent, entry->name);
 
+    bot->m_ent.m_vehicle_index = 0;
+
     CEntity_SetTeamMask(&bot->m_ent, teamMask);
 
     // Apply optional spawn overrides.

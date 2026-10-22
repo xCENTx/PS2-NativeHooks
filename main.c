@@ -483,8 +483,6 @@ static void ProcessPlayers(void* obj, void* ctx)
     
     if (m_featureset[CHEAT_ESP].enabled  )
     {
-        wsDrawMatrixAxes(&entity->m_ent.m_Matrix, 1.0f);
-
         //  wsDrawBoundingBox(pNode);
         spDrawSkeleton(entity);
     }
@@ -494,7 +492,10 @@ static void ProcessPlayers(void* obj, void* ctx)
 
     Vec2 screen;
     Vec3 wsBoneHead;
-    if (IsVisible(esp->seal, entity) == false || GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) == false || WorldToScreen(wsBoneHead, &screen) == false)
+    if (IsVisible(esp->seal, entity) == false 
+        || GetBoneWorldPosByIndex(entity, FT_BONE_head, &wsBoneHead) == false 
+        || WorldToScreen(wsBoneHead, &screen) == false
+    )
         return;
 
     dx = screen.x - 320.0f;
@@ -559,7 +560,7 @@ static void Bots_ProcessUI(void)
         if (local)
         {
             CZSealBody* bot = Bots_Spawn(
-                "NightFyreBOT",
+                local->m_ent.p_Name,
                 local->m_ent.m_TeamMask,
                 0,
                 0

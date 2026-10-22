@@ -1005,7 +1005,8 @@ typedef struct
 {
 	char pad_0000[4]; //0x0000
 	u32 m_id; // 0x0004
-	char pad_0005[8]; //0x0008
+	u32 m_index; // 0x0008
+	u32 m_vehicle_index; // 0x000C
 	ENTITY_TYPE mEntityType; //0x0010
 	char pad_0011[3]; //0x0011
 	char* p_Name; //0x0014
@@ -1023,7 +1024,7 @@ typedef struct
 	CZSealCtrl* p_SealCtrl; //0x00C0 // CZSealCtrl*
 	s32 m_TeamMask; //0x00C4
 	f32 m_MaxTargetRange; //0x00C8
-	s32 mM_axTargetCount; //0x00CC
+	s32 m_MaxTargetCount; //0x00CC
 	s32 m_TargetCount; //0x00D0
 	CTarget* p_TargetArray; //0x00D4
 	s32 m_AwareCounter; //0x00D8
