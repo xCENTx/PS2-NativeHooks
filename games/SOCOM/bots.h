@@ -4,11 +4,16 @@
 
 #include "game.h"
 
-#define BOT_MAX_COUNT 16
+#define BOT_NAME_LENGTH     32
+#define BOT_MAX_COUNT       16
+#define MAX_TEAM_PLAYERS    8
+#define TEAM_SEALS          0x40000001u
+#define TEAM_TERRORISTS     0x80000100u
 
 typedef struct
 {
     CZSealBody* seal;
+    char name[BOT_NAME_LENGTH];
     u32 entityId;
     s32 teamMask;
     bool active;
@@ -33,9 +38,14 @@ CZSealBody* Bots_Spawn(
     const Vec3* position
 );
 
+void Bots_GenerateName(BotEntry* entry, const char* prefix);
 bool Bots_SetTeam(u32 entityId, s32 teamMask);
 bool Bots_RequestRespawn(u32 entityId);
 void Bots_SetRespawnsEnabled(bool enabled);
 u32 Bots_GetCount(void);
+bool Bots_IsMultiplayerTeam(u32 teamMask);
+u32 Bots_SelectSpawnTeam(u32 preferredTeam);
+bool Bots_CanSpawnOnTeam(u32 teamMask, u32 teamCount);
+u32 Bots_CountTeamMembers(u32 teamMask);
 
 #endif

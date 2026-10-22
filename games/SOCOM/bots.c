@@ -93,33 +93,47 @@ void Bots_Reset(void)
 CZSealBody* Bots_Spawn( const char* name, s32 teamMask, const Matrix4x4* transform, const Vec3* position )
 {
     if (!name || !*name)
-        return NULL;
+        return 0;
 
     CZSealBody* local_seal = ftsGetPlayer();
     if (!local_seal)
-        return NULL;
+        return 0;
+
+    if (*(volatile u8*)gTheNetwork2)
+    {
+        teamMask = Bots_SelectSpawnTeam(teamMask);
+
+        if (!teamMask)
+            return 0;
+    }
 
     BotEntry* entry = Bots_FindFreeSlot();
     if (!entry)
-        return NULL;
+        return 0;
 
-    CCharacterType* character = CCharacterType_GetByNameMod("UiCharType2");
+    Bots_GenerateName(entry, name);
+
+    CCharacterType* character = local_seal->p_CharacterType;
     if (!character)
-        return NULL;
+        character = CCharacterType_GetByNameMod("UiCharType1");
+
+    if (!character)
+        return 0;
 
     CZSealBody* bot = ftsCreateSeal(
         character,
-        name,
+        entry->name,
         CTRL_AI
     );
 
     if (!bot)
-        return NULL;
+        return 0;
 
     if (bot->m_ent.p_Node)
-        CNode_SetName(bot->m_ent.p_Node, name);
+        CNode_SetName(bot->m_ent.p_Node, entry->name);
 
-    CEntity_SetDisplayName(&bot->m_ent, name);
+    CEntity_SetDisplayName(&bot->m_ent, entry->name);
+
     CEntity_SetTeamMask(&bot->m_ent, teamMask);
 
     // Apply optional spawn overrides.
@@ -140,7 +154,7 @@ CZSealBody* Bots_Spawn( const char* name, s32 teamMask, const Matrix4x4* transfo
 
         Matrix4x4 currentTransform = bot->m_ent.m_Matrix;
         
-        Vec3 lookDir = GetLookDirection(bot);
+        Vec3 lookDir = GetLookDirection(local_seal);
 
         currentTransform.m[3][0] = local_seal->m_ent.m_Matrix.m[3][0] + (lookDir.x * 5.f);
         currentTransform.m[3][1] = local_seal->m_ent.m_Matrix.m[3][1] + (lookDir.y * 5.f);
@@ -174,6 +188,35 @@ CZSealBody* Bots_Spawn( const char* name, s32 teamMask, const Matrix4x4* transfo
     g_Bots.count++;
 
     return bot;
+}
+
+void Bots_GenerateName(BotEntry* entry, const char* prefix)
+{
+    if (!entry || !prefix)
+        return;
+
+    u32 id = (u32)(entry - g_Bots.entries) + 1;
+
+    char digits[10];
+    u32 digitCount = 0;
+
+    do
+    {
+        digits[digitCount++] = '0' + (id % 10);
+        id /= 10;
+    }
+    while (id);
+
+    u32 pos = 0;
+
+    // Reserve room for the numeric suffix and terminator.
+    while (*prefix && pos + digitCount + 1 < BOT_NAME_LENGTH)
+        entry->name[pos++] = *prefix++;
+
+    while (digitCount)
+        entry->name[pos++] = digits[--digitCount];
+
+    entry->name[pos] = '\0';
 }
 
 bool Bots_SetTeam(u32 entityId, s32 teamMask)
@@ -248,4 +291,74 @@ void Bots_Tick(void)
 u32 Bots_GetCount(void)
 {
     return g_Bots.count;
+}
+
+bool Bots_IsMultiplayerTeam(u32 teamMask)
+{
+    return teamMask == TEAM_SEALS ||
+           teamMask == TEAM_TERRORISTS;
+}
+
+bool Bots_CanSpawnOnTeam(u32 teamMask, u32 teamCount)
+{
+    if (!*(volatile u8*)gTheNetwork2)
+        return true;
+
+    if (!Bots_IsMultiplayerTeam(teamMask))
+        return false;
+
+    return teamCount < MAX_TEAM_PLAYERS;
+}
+
+u32 Bots_SelectSpawnTeam(u32 preferredTeam)
+{
+    u32 otherTeam;
+
+    if (preferredTeam == TEAM_SEALS)
+        otherTeam = TEAM_TERRORISTS;
+    else if (preferredTeam == TEAM_TERRORISTS)
+        otherTeam = TEAM_SEALS;
+    else
+        return 0;
+
+    if (Bots_CountTeamMembers(preferredTeam) < MAX_TEAM_PLAYERS)
+        return preferredTeam;
+
+    if (Bots_CountTeamMembers(otherTeam) < MAX_TEAM_PLAYERS)
+        return otherTeam;
+
+    return 0;
+}
+
+typedef struct BotTeamCountContext
+{
+    u32 teamMask;
+    u32 count;
+} BotTeamCountContext;
+static void Bots_CountTeamCallback(void* data, void* ctx)
+{
+    CZSealBody* seal = (CZSealBody*)data;
+    BotTeamCountContext* count = (BotTeamCountContext*)ctx;
+
+    if (!seal || !count)
+        return;
+
+    if (seal->m_ent.m_TeamMask == count->teamMask)
+        ++count->count;
+}
+
+u32 Bots_CountTeamMembers(u32 teamMask)
+{
+    BotTeamCountContext ctx = {
+        .teamMask = teamMask,
+        .count = 0
+    };
+
+    ZArray_ForEach(
+        (ZArray*)gSealArray,
+        Bots_CountTeamCallback,
+        &ctx
+    );
+
+    return ctx.count;
 }

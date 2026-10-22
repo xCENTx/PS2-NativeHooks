@@ -955,9 +955,9 @@ static_assert(sizeof(AI_PARAMS) == 0x24, "Size of AI_PARAMS is not correct.");
 
 typedef struct __attribute__((packed))
 {
-	char pad_0000[128];
+	char* m_pName; //0x0000
 } CCharacterType; //Size: 0x080
-static_assert(sizeof(CCharacterType) == 0x80);
+static_assert(sizeof(CCharacterType) == 0x04);
 
 typedef struct __attribute__((packed))
 {
@@ -1130,7 +1130,9 @@ struct CZSealBody
 	Vec3 m_AimWorldAngles; //0x0330
 	char pad_033C[236]; //0x033C
 	Vec3 m_RelativeRotation; //0x0428
-	char pad_0434[156]; //0x0434
+	char pad_0434[68]; //0x0434
+	CCharacterType* p_CharacterType; //0x0478
+	char pad_047C[84]; //0x047C
 	SSealStats m_SealStats; //0x04D0
 	char pad_0522[14]; //0x0522
 	CZKit m_Kit; //0x0530
